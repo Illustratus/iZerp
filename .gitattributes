@@ -1,0 +1,13 @@
+# Normalise line endings across platforms (avoid CRLF churn in diffs).
+* text=auto eol=lf
+
+# Binary assets — never touch these.
+*.png binary
+*.izerp text eol=lf
+
+# Generated / vendored: keep out of GitHub's language stats and collapse in diffs.
+dist/**            linguist-generated=true
+docs/screenshots/* linguist-generated=true
+
+# Documentation & examples shouldn't dominate the language breakdown.
+examples/**  linguist-documentation

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iZerp — zoom-and-pan presentations, dropped into any page</title>
+  <meta name="description" content="iZerp turns any HTML page into a zoom-and-pan, Prezi-style presentation. Two files, no build, no dependencies.">
+
+  <!-- iZerp + the optional showcase typography/theme (this is the demo page, so
+       loading the web fonts here is a deliberate choice). -->
+  <link rel="stylesheet" href="izerp-lib.css">
+  <link rel="stylesheet" href="izerp-fonts.css">
+
+  <style>
+    html, body { margin: 0; }
+    body {
+      background:
+        radial-gradient(1400px 900px at 25% 15%, #1c1810, #0e0c0a 72%);
+      color: #f3ecda;
+      font-family: 'Hanken Grotesk', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+    .card {
+      position: absolute;
+      width: 1600px; height: 900px;
+      box-sizing: border-box;
+      padding: 100px 110px;
+      display: flex; flex-direction: column; justify-content: center;
+      background: linear-gradient(158deg, #1a1610 0%, #100d09 100%);
+      border: 1px solid rgba(198,154,76,0.22);
+      border-top-color: rgba(236,207,146,0.4);
+      border-radius: 28px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,248,232,0.08),
+        0 60px 140px rgba(0,0,0,0.6);
+    }
+    .kicker {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 30px; letter-spacing: 0.34em; text-transform: uppercase;
+      color: #c69a4c; margin-bottom: 30px;
+    }
+    h1 {
+      font-family: 'Fraunces', Georgia, serif;
+      font-size: 150px; line-height: 0.98; margin: 0 0 28px; font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    h2 {
+      font-family: 'Fraunces', Georgia, serif;
+      font-size: 92px; line-height: 1.02; margin: 0 0 30px; font-weight: 600;
+    }
+    p { font-size: 46px; line-height: 1.4; margin: 0; color: rgba(243,236,218,0.74); max-width: 24ch; }
+    .hero p { font-size: 52px; max-width: 22ch; }
+    code {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.82em;
+      background: rgba(198,154,76,0.12); border: 1px solid rgba(198,154,76,0.3);
+      color: #eccf92; padding: 0.08em 0.35em; border-radius: 8px;
+    }
+    .hint {
+      position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+      z-index: 5; font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      letter-spacing: 0.12em; color: rgba(243,236,218,0.6);
+      background: rgba(16,13,9,0.7); border: 1px solid rgba(198,154,76,0.25);
+      padding: 8px 18px; border-radius: 100px; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="hint">Open the iZerp menu (bottom-left) → Presentation — or press the ▶ and play</div>
+
+  <div id="stage"></div>
+
+  <script>
+    // One source of truth feeds both the cards and the camera targets.
+    const CARD_W = 1600, CARD_H = 900;
+    const REF_VW = 1920, REF_VH = 1080, FILL = 0.9;
+    const SCALE  = FILL * REF_VW / CARD_W;
+
+    const STATIONS = [
+      { left: 0,    top: 0,    hero: true, kicker: 'Drop-in presentation', h: 'iZerp',
+        body: 'Turn any HTML page into a zoom-and-pan presentation.',
+        notes: 'Welcome to iZerp. Everything you see is one ordinary web page — iZerp just wraps it in a zoomable canvas.' },
+      { left: 1800, top: 0,    kicker: '01 · Place', h: 'Freely',
+        body: 'Lay content anywhere on a big canvas. Position is just CSS.',
+        notes: 'Cards are absolutely positioned. iZerp reads their centre points as slide targets.' },
+      { left: 3600, top: 0,    kicker: '02 · Capture', h: 'Slides',
+        body: 'Each saved viewport becomes a slide with speaker notes.',
+        notes: 'In the editor you pan/zoom and hit “Set slide”. The camera flies between saved viewports.' },
+      { left: 0,    top: 1100, kicker: '03 · Present', h: 'Present',
+        body: 'Rail, timer, speaker notes, and a laser pointer on Space.',
+        notes: 'Hold Space for the laser. Press N for notes. The rail shows progress without covering the stage.' },
+      { left: 1800, top: 1100, kicker: '04 · Ship', h: 'Two files',
+        body: 'One CSS, one JS. No build, no dependencies, no external requests.',
+        notes: 'Add izerp-lib.css and izerp-lib.js. That is the whole install.' },
+      { left: 3600, top: 1100, kicker: '05 · Make it yours', h: 'Themable',
+        body: 'Every colour and font is a CSS variable. Config via data-* or the API.',
+        notes: 'The default is the Brass & Ink theme. Override CSS variables, or ship izerp-theme-neutral.css.' },
+    ];
+
+    const stage = document.getElementById('stage');
+    STATIONS.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'card' + (s.hero ? ' hero' : '');
+      el.style.left = s.left + 'px';
+      el.style.top  = s.top  + 'px';
+      const tag = s.hero ? 'h1' : 'h2';
+      el.innerHTML =
+        '<div class="kicker">' + s.kicker + '</div>' +
+        '<' + tag + '>' + s.h + '</' + tag + '>' +
+        '<p>' + s.body + '</p>';
+      stage.appendChild(el);
+    });
+
+    // Seed slides (works over file:// too). iZerp respects existing edits.
+    (function seed() {
+      const key = 'izerp:slides:' + location.pathname + location.search;
+      if (localStorage.getItem(key)) return;
+      const slides = STATIONS.map((s, i) => ({
+        id: 's' + (i + 1), title: s.h === 'iZerp' ? 'iZerp' : (s.kicker.split('·').pop().trim()),
+        cx: s.left + CARD_W / 2, cy: s.top + CARD_H / 2,
+        scale: SCALE, vw: REF_VW, vh: REF_VH, notes: s.notes,
+      }));
+      slides.push({
+        id: 's-overview', title: 'The whole canvas',
+        cx: 2600, cy: 1000,
+        scale: Math.min(REF_VW / 5200, REF_VH / 2200) * FILL,
+        vw: REF_VW, vh: REF_VH,
+        notes: 'Zoomed out: every station on one surface. This is the map your audience never sees the seams of.',
+      });
+      localStorage.setItem(key, JSON.stringify(slides));
+    })();
+  </script>
+
+  <script src="izerp-lib.js"></script>
+</body>
+</html>

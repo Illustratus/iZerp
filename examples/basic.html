@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iZerp — basic example</title>
+
+  <!-- 1. iZerp stylesheet (default "Brass & Ink" theme, no web fonts) -->
+  <link rel="stylesheet" href="../izerp-lib.css">
+
+  <!-- Optional add-ons — uncomment to try them:
+       <link rel="stylesheet" href="../izerp-fonts.css">          restore Fraunces/Hanken/JetBrains
+       <link rel="stylesheet" href="../izerp-theme-neutral.css">  swap Brass for a neutral skin
+  -->
+
+  <style>
+    /* This example's OWN content styles — nothing here is required by iZerp.
+       Cards are positioned absolutely on a large canvas; iZerp reads their
+       centre points as slide targets (see the STATIONS array below). */
+    html, body { margin: 0; }
+    body {
+      background:
+        radial-gradient(1200px 800px at 30% 20%, #1a1712, #0e0c0a 70%);
+      color: #f3ecda;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      min-height: 100vh;
+    }
+    .card {
+      position: absolute;
+      width: 1600px; height: 900px;
+      box-sizing: border-box;
+      padding: 90px 100px;
+      display: flex; flex-direction: column; justify-content: center;
+      background: linear-gradient(160deg, #171310, #0f0d0a);
+      border: 1px solid rgba(198,154,76,0.25);
+      border-radius: 24px;
+      box-shadow: 0 40px 120px rgba(0,0,0,0.6);
+    }
+    .card .kicker {
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 34px; letter-spacing: 0.3em; text-transform: uppercase;
+      color: #c69a4c; margin-bottom: 28px;
+    }
+    .card h1 { font-size: 112px; line-height: 1.05; margin: 0 0 32px; font-weight: 800; }
+    .card p  { font-size: 46px; line-height: 1.4; margin: 0; color: rgba(243,236,218,0.72); max-width: 26ch; }
+  </style>
+</head>
+<body>
+
+  <!-- Content cards. In a real deck you'd author these however you like;
+       here a small script renders them from one STATIONS source so the
+       cards and the slide camera targets can never drift apart. -->
+  <div id="stage"></div>
+
+  <script>
+    // ── Single source of truth ──────────────────────────────────
+    // Each station has a canvas position (left/top) and text. The card
+    // is 1600×900 (16:9), so all slides share one scale and the camera
+    // motion stays calm. Centre of a card = (left + 800, top + 450).
+    const CARD_W = 1600, CARD_H = 900;
+    const REF_VW = 1920, REF_VH = 1080, FILL = 0.9;
+    const SCALE  = FILL * REF_VW / CARD_W;        // ≈ 1.08
+
+    const STATIONS = [
+      { left: 200,  top: 200,  kicker: '01', title: 'iZerp',        body: 'Turn any HTML page into a zoom-and-pan presentation.', notes: 'Welcome. This is the opening view.' },
+      { left: 2000, top: 200,  kicker: '02', title: 'Place freely', body: 'Lay content out anywhere on a big canvas.',            notes: 'Content lives at absolute coordinates.' },
+      { left: 200,  top: 1300, kicker: '03', title: 'Save slides',  body: 'Each saved viewport becomes a slide with notes.',        notes: 'The camera flies between saved viewports.' },
+      { left: 2000, top: 1300, kicker: '04', title: 'Present',      body: 'Smooth camera moves create the Prezi effect.',          notes: 'Hold SPACE for the laser pointer. Press N for notes.' },
+    ];
+
+    // Render the cards.
+    const stage = document.getElementById('stage');
+    STATIONS.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.style.left = s.left + 'px';
+      el.style.top  = s.top  + 'px';
+      el.innerHTML =
+        '<div class="kicker">' + s.kicker + '</div>' +
+        '<h1>' + s.title + '</h1>' +
+        '<p>'  + s.body  + '</p>';
+      stage.appendChild(el);
+    });
+
+    // ── Seed slides ─────────────────────────────────────────────
+    // Written to localStorage BEFORE izerp-lib.js loads so the demo works
+    // even over file:// (no server / fetch needed). iZerp will pick these
+    // up unless this page already has its own saved slides. In production
+    // you'd usually ship a .izerp file and wire it via data-slides instead.
+    (function seedSlides() {
+      const key = 'izerp:slides:' + location.pathname + location.search;
+      if (localStorage.getItem(key)) return;   // respect the user's own edits
+      const slides = STATIONS.map((s, i) => ({
+        id: 's' + (i + 1),
+        title: s.title,
+        cx: s.left + CARD_W / 2,
+        cy: s.top  + CARD_H / 2,
+        scale: SCALE,
+        vw: REF_VW, vh: REF_VH,
+        notes: s.notes,
+      }));
+      // A final "overview" slide framing the whole 2×2 grid.
+      slides.push({
+        id: 's-overview', title: 'Overview',
+        cx: 1900, cy: 1200,
+        scale: Math.min(REF_VW / 3400, REF_VH / 2400) * FILL,
+        vw: REF_VW, vh: REF_VH,
+        notes: 'Zoomed out — the whole canvas at once.',
+      });
+      localStorage.setItem(key, JSON.stringify(slides));
+    })();
+  </script>
+
+  <!-- 2. iZerp itself — LAST, so it can wrap the content above.
+       Open the menu (bottom-left) → Presentation to play. -->
+  <script src="../izerp-lib.js"></script>
+</body>
+</html>

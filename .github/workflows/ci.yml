@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit:
+    name: Lint · unit tests · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Lint (syntax check)
+        run: npm run lint
+      - name: Unit tests (jsdom)
+        run: npm test
+      - name: Build minified dist
+        run: npm run build
+      - name: Advise if committed dist differs from a fresh build
+        # Non-fatal: esbuild output can vary slightly across platforms/versions,
+        # so this is a heads-up, not a gate. Commit dist/ from `npm run build`.
+        run: |
+          if ! git diff --quiet -- dist/; then
+            echo "::warning::committed dist/ differs from this build — re-run 'npm run build' locally and commit if the change is intentional"
+            git --no-pager diff --stat -- dist/ || true
+          fi
+
+  e2e:
+    name: Playwright e2e (chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run e2e tests
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

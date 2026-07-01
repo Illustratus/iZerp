@@ -1,0 +1,4 @@
+iZerp v1.3.0 minified build
+- dist/izerp-lib.min.js
+- dist/izerp-lib.min.css
+Regenerate with: npm run build

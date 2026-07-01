@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Test / tooling output
+test-results/
+playwright-report/
+.playwright/
+coverage/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local, private decks — don't publish personal presentations.
+# Committed examples/ decks are the exception (they're documentation).
+/*.izerp
+!examples/*.izerp
+
+# NOTE: dist/ is intentionally committed so jsDelivr/unpkg can serve the
+# minified build straight from a git tag. Regenerate it with `npm run build`.

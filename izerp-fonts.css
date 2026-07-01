@@ -1,0 +1,26 @@
+/* ═══════════════════════════════════════════════════════════════
+   izerp-fonts.css — OPTIONAL web-font pack for iZerp
+   ----------------------------------------------------------------
+   iZerp ships with ZERO network requests: izerp-lib.css falls back to
+   a system font stack. This file is the opt-in that restores the
+   original "Brass & Ink" typography — Fraunces (display), Hanken
+   Grotesk (body) and JetBrains Mono (mono) — by fetching them from
+   Google Fonts and pointing iZerp's font variables at them.
+
+   Load it AFTER izerp-lib.css so the overrides win:
+
+     <link rel="stylesheet" href="izerp-lib.css">
+     <link rel="stylesheet" href="izerp-fonts.css">   <!-- optional -->
+
+   ⚠️ This makes a request to fonts.googleapis.com / fonts.gstatic.com.
+   For a fully offline / self-hosted setup, host the .woff2 files
+   yourself with @font-face rules and set the three variables below.
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..600&family=Hanken+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+
+#izerp-root {
+  --p-display: 'Fraunces', Georgia, serif;
+  --p-body:    'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+  --p-mono:    'JetBrains Mono', ui-monospace, monospace;
+}

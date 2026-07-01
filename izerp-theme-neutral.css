@@ -1,0 +1,67 @@
+/* ═══════════════════════════════════════════════════════════════
+   izerp-theme-neutral.css — OPTIONAL restrained skin for iZerp
+   ----------------------------------------------------------------
+   iZerp's default look is "Brass & Ink" (warm gilt on obsidian). This
+   opt-in overrides the palette to a calm, neutral graphite/silver so
+   the chrome recedes on brand-agnostic sites. Load it AFTER
+   izerp-lib.css so the variables win:
+
+     <link rel="stylesheet" href="izerp-lib.css">
+     <link rel="stylesheet" href="izerp-theme-neutral.css">   <!-- optional -->
+
+   This is an accent-level retheme: it swaps the metal, the hairlines,
+   the glow and the surface tint. It's the recommended starting point
+   for your own theme — copy this file and adjust the values.
+   ═══════════════════════════════════════════════════════════════ */
+
+#izerp-root {
+  /* Neutral obsidian — cool graphite instead of warm ink */
+  --ink:        #101114;
+  --ink-2:      #15171b;
+  --ink-3:      #1b1e23;
+  --ink-glass:  rgba(16, 17, 20, 0.82);
+  --ink-glass-2:rgba(20, 22, 26, 0.92);
+
+  /* Silver — the metal, now brushed steel instead of brass */
+  --brass:      #9aa3ad;
+  --brass-hi:   #d7dde3;
+  --brass-mid:  #a8b0b9;
+  --brass-lo:   #6f7883;
+  --brass-deep: #4a525c;
+  --polished:   linear-gradient(180deg, var(--brass-hi) 0%, var(--brass-mid) 46%, var(--brass-lo) 100%);
+
+  /* Oxblood stays as the destructive stamp — universally legible as danger */
+
+  /* RGB channels — retint every glow/shadow, not just the solid fills. */
+  --brass-rgb:      154, 163, 173;   /* brushed steel        */
+  --brass-hi-rgb:   215, 221, 227;
+  --brass-deep-rgb: 74, 82, 92;
+  --paper-rgb:      238, 241, 244;   /* cool specular white  */
+
+  /* Neutral cool-white light & silver hairlines */
+  --tx-100:     #eef1f4;
+  --tx-72:      rgba(var(--paper-rgb), 0.74);
+  --tx-50:      rgba(var(--paper-rgb), 0.52);
+  --tx-32:      rgba(var(--paper-rgb), 0.34);
+  --tx-18:      rgba(var(--paper-rgb), 0.18);
+
+  --line:       rgba(var(--brass-rgb), 0.16);
+  --line-2:     rgba(var(--brass-rgb), 0.30);
+  --line-hi:    rgba(var(--brass-hi-rgb), 0.42);
+  --shine:      rgba(var(--paper-rgb), 0.10);
+  --shine-soft: rgba(var(--paper-rgb), 0.045);
+  --lamp:       rgba(var(--brass-rgb), 0.10);
+
+  /* Glass foundation — cool highlight raking across a neutral surface */
+  --glass: linear-gradient(158deg,
+              rgba(255, 255, 255, 0.06) 0%,
+              rgba(255, 255, 255, 0.02) 32%,
+              transparent 64%),
+            var(--ink-glass-2);
+
+  /* Themable accent (Settings can still retint these at runtime) */
+  --p-primary:        var(--brass);
+  --p-progress-color: var(--brass);
+  --p-panel-bg:       var(--ink);
+  --p-panel-text:     var(--tx-100);
+}

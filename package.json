@@ -1,0 +1,62 @@
+{
+  "name": "izerp",
+  "version": "1.3.0",
+  "description": "Turn any HTML page into a zoom-and-pan (Prezi-style) presentation. Two files, no build, no dependencies.",
+  "keywords": [
+    "presentation",
+    "prezi",
+    "zoom",
+    "pan",
+    "slides",
+    "zooming-user-interface",
+    "zui",
+    "canvas",
+    "vanilla-js",
+    "no-dependencies",
+    "widget"
+  ],
+  "author": "Illustratus",
+  "license": "MIT",
+  "homepage": "https://github.com/Illustratus/iZerp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Illustratus/iZerp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Illustratus/iZerp/issues"
+  },
+  "main": "izerp-lib.js",
+  "browser": "izerp-lib.js",
+  "types": "izerp.d.ts",
+  "unpkg": "dist/izerp-lib.min.js",
+  "jsdelivr": "dist/izerp-lib.min.js",
+  "style": "izerp-lib.css",
+  "sideEffects": true,
+  "files": [
+    "izerp-lib.js",
+    "izerp-lib.css",
+    "izerp.d.ts",
+    "izerp-fonts.css",
+    "izerp-theme-neutral.css",
+    "dist/",
+    "examples/",
+    "README.md",
+    "README.de.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepack": "npm run build",
+    "build": "node build.mjs",
+    "lint": "node --check izerp-lib.js",
+    "test": "node --test test/unit/*.test.mjs",
+    "test:e2e": "playwright test",
+    "screenshots": "node scripts/screenshots.mjs",
+    "start": "python3 -m http.server 8000"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "esbuild": "^0.24.0",
+    "jsdom": "^25.0.0"
+  }
+}
