@@ -21,7 +21,6 @@ const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 2 })
 await page.addInitScript(() => { try { localStorage.clear(); } catch {} });
 await page.goto(pageUrl);
 await page.waitForFunction(() => window.iZerp && window.iZerp.isReady());
-await page.evaluate(() => document.querySelector('.hint')?.remove());
 await settle(page, 400);
 
 async function shot(name) {

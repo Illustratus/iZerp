@@ -55,18 +55,18 @@
       background: rgba(198,154,76,0.12); border: 1px solid rgba(198,154,76,0.3);
       color: #eccf92; padding: 0.08em 0.35em; border-radius: 8px;
     }
-    .hint {
-      position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
-      z-index: 5; font-family: 'JetBrains Mono', monospace; font-size: 13px;
-      letter-spacing: 0.12em; color: rgba(243,236,218,0.6);
-      background: rgba(16,13,9,0.7); border: 1px solid rgba(198,154,76,0.25);
-      padding: 8px 18px; border-radius: 100px; pointer-events: none;
+    /* A quiet call-to-action, part of the hero card itself (so it zooms and
+       pans with the canvas instead of floating over it). */
+    .card-cta {
+      position: absolute; left: 110px; bottom: 72px;
+      display: inline-flex; align-items: center; gap: 14px;
+      font-family: 'JetBrains Mono', monospace; font-size: 26px;
+      letter-spacing: 0.05em; color: rgba(243,236,218,0.5);
     }
+    .card-cta b { color: #eccf92; font-weight: 500; }
   </style>
 </head>
 <body>
-
-  <div class="hint">Open the iZerp menu (bottom-left) → Presentation — or press the ▶ and play</div>
 
   <div id="stage"></div>
 
@@ -79,6 +79,7 @@
     const STATIONS = [
       { left: 0,    top: 0,    hero: true, kicker: 'Drop-in presentation', h: 'iZerp',
         body: 'Turn any HTML page into a zoom-and-pan presentation.',
+        cta: '▶ <b>Menu</b> (bottom-left) → <b>Presentation</b>',
         notes: 'Welcome to iZerp. Everything you see is one ordinary web page — iZerp just wraps it in a zoomable canvas.' },
       { left: 1800, top: 0,    kicker: '01 · Place', h: 'Freely',
         body: 'Lay content anywhere on a big canvas. Position is just CSS.',
@@ -107,7 +108,8 @@
       el.innerHTML =
         '<div class="kicker">' + s.kicker + '</div>' +
         '<' + tag + '>' + s.h + '</' + tag + '>' +
-        '<p>' + s.body + '</p>';
+        '<p>' + s.body + '</p>' +
+        (s.cta ? '<div class="card-cta">' + s.cta + '</div>' : '');
       stage.appendChild(el);
     });
 
