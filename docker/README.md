@@ -232,8 +232,10 @@ For anything beyond a trusted network:
   uploading; both can mount the same directory, the read-only one `:ro`.
 
 The container runs as **root** by default so that a bind mount owned by any host
-user works on the first try. To run unprivileged, make the directory writable by
-that user and pass it through:
+user works on the first try. Files it creates are handed to whoever owns the
+mounted directory, so on Linux your own decks stay deletable without `sudo`; a
+root-owned named volume is left alone. To run unprivileged, make the directory
+writable by that user and pass it through:
 
 ```bash
 mkdir -p decks

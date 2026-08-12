@@ -229,6 +229,7 @@ def build_presentation(name: str, slug: str, pdf_bytes_path: Path,
         # host and from a container started later with a different --user, so
         # widen it before the directory becomes the published deck.
         staging.chmod(0o755)
+        match_volume_owner(staging)
 
         target = deck_dir(slug)
         if target.exists():
@@ -254,6 +255,7 @@ def replace_deck(slug: str, deck_bytes: bytes) -> dict:
     meta["slide_count"] = len(deck_data["slides"])
     (deck_dir(slug) / "meta.json").write_text(
         json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    match_volume_owner(deck_dir(slug))
     return meta
 
 
@@ -279,7 +281,30 @@ def regenerate_deck(slug: str) -> dict:
     meta["slide_count"] = len(json.loads(deck_json)["slides"])
     (deck_dir(slug) / "meta.json").write_text(
         json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    match_volume_owner(deck_dir(slug))
     return meta
+
+
+def match_volume_owner(path: Path) -> None:
+    """Give new files the same owner as the data directory itself.
+
+    On Linux a bind mount keeps its host owner, but the container writes as
+    root — so the user could not delete their own decks again without sudo.
+    Copying the volume's ownership onto everything we create removes that
+    papercut without asking anyone to configure a UID. A root-owned volume
+    (the named-volume case) and a container started with --user both fall
+    through untouched.
+    """
+    try:
+        if os.geteuid() != 0:
+            return
+        owner = DATA_DIR.stat()
+        if owner.st_uid == 0 and owner.st_gid == 0:
+            return
+        for entry in (path, *path.rglob("*")):
+            os.chown(entry, owner.st_uid, owner.st_gid)
+    except (OSError, AttributeError):
+        pass                      # best effort: never fail an upload over this
 
 
 def _content_box_of(meta: dict) -> tuple[float, float, float, float]:

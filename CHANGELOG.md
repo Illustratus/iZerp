@@ -40,6 +40,10 @@ string — the container produces exactly the kind of page iZerp already consume
     empty canvas. No automatic remapping: printing reflows the layout, so no
     single transform is correct, and a near-miss is harder to spot than an
     obvious one.
+  - **Files follow the volume's owner.** On Linux a bind mount keeps its host
+    owner while the container writes as root, which left users unable to delete
+    their own decks without `sudo`. New decks are handed to the owner of the
+    data directory; a root-owned named volume is left untouched.
   - Stdlib-only Python server, no pip dependencies; `IZERP_READ_ONLY`,
     `IZERP_RENDER_WIDTH`, `IZERP_GAP`, `IZERP_TITLE`, `IZERP_LANG`,
     `IZERP_MAX_UPLOAD_MB` for configuration; `/healthz` used as the image's

@@ -16,6 +16,10 @@ DATA="$(mktemp -d)"
 
 cleanup() {
   docker rm -f "$NAME" >/dev/null 2>&1 || true
+  # On Linux the container writes as root into the bind mount, so a non-root
+  # runner cannot delete the result. Empty it from inside a container first.
+  docker run --rm -v "$DATA:/data" "$IMAGE" \
+    sh -c 'rm -rf /data/..?* /data/.[!.]* /data/*' >/dev/null 2>&1 || true
   rm -rf "$DATA"
 }
 trap cleanup EXIT
@@ -63,6 +67,15 @@ ok "library files and page images served"
 [ -f "$DATA/smoke-deck/source.pdf" ]      || fail "the original PDF was not kept"
 [ -f "$DATA/smoke-deck/pages/0001.png" ]  || fail "page images are not on the volume"
 ok "everything landed on the mounted volume"
+
+# The volume must stay usable from the host: a deck the container created has
+# to be deletable by whoever owns the mounted directory, without sudo.
+if [ "$(uname)" = "Linux" ]; then
+  want="$(stat -c '%u:%g' "$DATA")"
+  got="$(stat -c '%u:%g' "$DATA/smoke-deck/deck.izerp")"
+  [ "$want" = "$got" ] || fail "deck files are owned by $got, the volume by $want — the host user could not delete them"
+  ok "files belong to the volume's owner ($got)"
+fi
 
 # Garbage in must not produce a broken deck.
 BAD="$(mktemp)"; echo 'not an izerp file' > "$BAD"
