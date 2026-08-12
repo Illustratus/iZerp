@@ -116,19 +116,31 @@ test('a folder dropped on the volume is listed and served as-is', async ({ page 
   expect((await raw.json()).slides).toHaveLength(2);
 });
 
-test('/edit opens the editor and wires live reload, /present does neither', async ({ page }) => {
+test('/edit and /present are links that land on one canonical URL', async ({ page, request }) => {
+  // Not three paths for one deck: a project pins its own library version, and
+  // older ones key localStorage on the pathname — slides saved while editing
+  // would then be missing during the talk.
+  for (const route of ['edit', 'present']) {
+    const response = await request.get(`${HOST}/p/${PROJECT}/${route}`, { maxRedirects: 0 });
+    expect(response.status()).toBe(303);
+    expect(response.headers()['location']).toBe(`/p/${PROJECT}/#${route}`);
+  }
+
   await page.goto(`${HOST}/p/${PROJECT}/edit`);
   await page.waitForFunction(() => window.iZerp && window.iZerp.isReady());
+  expect(new URL(page.url()).pathname).toBe(`/p/${PROJECT}/`);
   await expect(page.locator('#izerp-root')).toHaveAttribute('data-mode', 'editor');
-  expect(await page.evaluate(
-    () => document.querySelector('script[src="/assets/project.js"]')?.dataset.watch)).toBe('1');
 
   await page.goto(`${HOST}/p/${PROJECT}/present`);
   await page.waitForFunction(() => window.iZerp && window.iZerp.isReady());
   await expect(page.locator('#izerp-root')).toHaveAttribute('data-mode', 'presentation');
-  // A talk must never reload under the speaker.
-  expect(await page.evaluate(
-    () => document.querySelector('script[src="/assets/project.js"]')?.dataset.watch)).toBe('');
+});
+
+test('a live-reload script is injected into the project page', async ({ page }) => {
+  await page.goto(`${HOST}/p/${PROJECT}/`);
+  const sig = await page.evaluate(
+    () => document.querySelector('script[src="/assets/project.js"]')?.dataset.sig);
+  expect(sig).toMatch(/^[0-9a-f]{16}$/);
 });
 
 test('the watch endpoint reports a change and holds still otherwise', async ({ request }) => {

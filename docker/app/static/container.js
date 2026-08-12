@@ -106,10 +106,11 @@
       bar.classList.toggle('izerp-host-away', mode !== 'idle');
     });
 
-    // /p/<slug>/present and /p/<slug>/edit ask for a mode up front — one click
-    // from the library to a running talk instead of list → page → FAB → menu.
-    if (boot.mode && window.iZerp && window.iZerp.isReady()) {
-      window.iZerp.setMode(boot.mode);
+    // /p/<slug>/present and /p/<slug>/edit redirect here with a hash — one
+    // click from the library to a running talk instead of page → FAB → menu.
+    var wanted = { '#edit': 'editor', '#present': 'presentation' }[location.hash];
+    if (wanted && window.iZerp && window.iZerp.isReady()) {
+      window.iZerp.setMode(wanted);
     }
   }
 

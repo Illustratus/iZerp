@@ -24,10 +24,17 @@ served live from the volume while you build it with your own toolchain.
   no build of its own: run `make`, `vite` or Pandoc on the host and the browser
   follows. A change is debounced until the folder holds still, so a build that
   writes a dozen files reloads the page once, not a dozen times.
-- **`/p/<slug>/edit` and `/p/<slug>/present`** — the two jobs as two URLs, for
-  PDF decks and HTML projects alike. `/present` opens straight into the talk
-  and is deliberately **not** reloaded when files change; `/edit` opens the
-  editor and is. Both are on the library card.
+- **`/p/<slug>/edit` and `/p/<slug>/present`** — the two jobs as two links, for
+  PDF decks and HTML projects alike; `/present` is the one to send someone.
+  Both redirect to `/p/<slug>/#edit|#present` rather than serving separate
+  pages: a project pins its own library version, and older ones key
+  `localStorage` on `location.pathname`, so three paths would split one deck
+  into three sets of slides. Live reload pauses while a presentation is
+  running, however it was started.
+- **A project whose page never loads its own `.izerp`** is flagged on the card
+  with the one-line fix (`data-slides="slides.izerp"`). Such a deck only ever
+  existed in the browser it was authored in, and would otherwise show up here
+  as an inexplicably empty presentation.
 - Directory traversal and dotfiles (`.git`, `.env`) are refused for project
   folders; `IZERP_WATCH_INTERVAL`, `IZERP_WATCH_QUIET`, `IZERP_WATCH_TIMEOUT`
   tune the watcher.

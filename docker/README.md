@@ -151,6 +151,20 @@ and then reloads once.
 
 The library page tells you which of these applies, per folder.
 
+### The page has to load its own deck
+
+A project that only ever had its slides in `localStorage` starts **empty** at a
+new URL — the deck lived in the browser it was made in, not in the folder. Wire
+the file up once:
+
+```html
+<script src="./izerp-lib.js" data-slides="slides.izerp"></script>
+```
+
+The library page checks for this and says so on the card, rather than leaving
+you with an inexplicable "no slides". Importing the `.izerp` once through
+**Settings → Open .izerp** works too, but only in that one browser.
+
 ### What the container does not touch
 
 Your markup, your assets and your `izerp-lib.js` are served byte for byte —
@@ -165,15 +179,21 @@ request cannot escape the project folder.
 The two things you do with a deck are different jobs, so they have different
 URLs. Both work for a PDF deck and for an HTML project.
 
-| URL | For | Live reload |
-| --- | --- | --- |
-| `/p/<slug>/` | Opening it, looking around | yes |
-| `/p/<slug>/edit` | Placing slides, adjusting the camera | yes |
-| `/p/<slug>/present` | The talk | **no** |
+| Link | For |
+| --- | --- |
+| `/p/<slug>/` | Opening it, looking around |
+| `/p/<slug>/edit` | Placing slides, adjusting the camera |
+| `/p/<slug>/present` | The talk — this is the link you send to someone |
 
-`/present` is deliberately frozen: a page that reloads itself in the middle of a
-talk is worse than a stale one. It is also the link to send to someone — it
-opens straight into the presentation, no menu, no clicks.
+`/edit` and `/present` **redirect** to `/p/<slug>/#edit` and `/p/<slug>/#present`.
+That is on purpose rather than three separate pages: a project pins its own copy
+of the library, and older versions key `localStorage` on `location.pathname`.
+Three paths would give one deck three separate sets of slides, and the work you
+did in the editor would be missing during the talk.
+
+**Live reload pauses while you present** — however the presentation was started,
+from the link or from the menu. A page that reloads itself mid-talk is worse
+than a stale one; changes are picked up the moment you leave presentation mode.
 
 ---
 

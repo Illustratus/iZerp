@@ -175,7 +175,22 @@ def read_project(slug: str) -> dict | None:
         return None
 
     entry, reason = deck.resolve_entry(names, config)
-    decks = sorted(n for n in names if n.endswith(".izerp"))
+    # Conventional names first, so a hint names the file people expect.
+    decks = sorted((n for n in names if n.endswith(".izerp")),
+                   key=lambda n: (n not in ("slides.izerp", "deck.izerp"), n))
+
+    # A page that neither wires data-slides nor seeds localStorage starts empty
+    # at a new URL — the deck was only ever in the browser it was made in. That
+    # is the single most confusing thing that can happen to a project moved
+    # here, so the library says it out loud rather than showing "no slides".
+    wires_deck = None
+    if entry:
+        try:
+            head = (root / entry).read_bytes()[:400_000].lower()
+            wires_deck = b"data-slides" in head or b"izerp:slides:" in head
+        except OSError:
+            wires_deck = None
+
     return {
         "slug": slug,
         "kind": "html",
@@ -183,6 +198,7 @@ def read_project(slug: str) -> dict | None:
         "entry": entry,
         "reason": reason,
         "deck_files": decks,
+        "wires_deck": wires_deck,
         "created": root.stat().st_mtime,
     }
 
@@ -613,10 +629,19 @@ def project_card(meta: dict) -> str:
     slug = meta["slug"]
     servable = bool(meta.get("entry"))
     decks = meta.get("deck_files") or []
-    detail = (f'entry <code>{esc(meta["entry"])}</code>'
-              + (f' · {esc(", ".join(decks[:2]))}' if decks else ' · no .izerp in the folder')
-              if servable else
-              f'<span class="off-page">{esc(meta.get("reason", "cannot be served"))}</span>')
+    if servable:
+        detail = (f'entry <code>{esc(meta["entry"])}</code>'
+                  + (f' · {esc(", ".join(decks[:2]))}' if decks
+                     else ' · no .izerp in the folder'))
+    else:
+        detail = f'<span class="off-page">{esc(meta.get("reason", "cannot be served"))}</span>'
+
+    hint = ""
+    if servable and decks and meta.get("wires_deck") is False:
+        hint = (f'<p class="deck-hint">The page never loads <code>{esc(decks[0])}</code>. '
+                f'Add <code>data-slides="{esc(decks[0])}"</code> to its '
+                f'<code>&lt;script&gt;</code> tag, or import the file once from '
+                f'Settings — otherwise this deck starts empty here.</p>')
     return f"""
       <article class="deck">
         <div class="deck-open"><div class="thumb thumb-empty thumb-html">&lt;/&gt;</div></div>
@@ -624,6 +649,7 @@ def project_card(meta: dict) -> str:
           <h3>{f'<a href="/p/{esc(slug)}/">{esc(meta.get("name") or slug)}</a>'
                if servable else esc(meta.get('name') or slug)}</h3>
           <p class="deck-meta">html project · {detail}</p>
+          {hint}
           <div class="deck-actions">
             {mode_buttons(slug) + f'<a class="btn" href="/p/{esc(slug)}/">Open</a>'
              if servable else ''}
@@ -689,20 +715,15 @@ def library_page(message: str | None = None, tone: str = "ok") -> bytes:
     return page_shell(SITE_TITLE, body)
 
 
-def inject_project_script(page: bytes, mode: str | None,
-                          watch: bool, signature: str) -> bytes:
+def inject_project_script(page: bytes, signature: str) -> bytes:
     """Add one script tag to the project's own HTML — and change nothing else.
 
     The project's markup, its assets and its copy of izerp-lib.js are served
     exactly as they are on disk. This single tag carries the mode the route
     asked for and the fingerprint the live reload polls against.
     """
-    tag = (
-        f'<script src="/assets/project.js"'
-        f' data-mode="{esc(mode or "")}"'
-        f' data-watch="{"1" if watch else ""}"'
-        f' data-sig="{esc(signature)}"></script>'
-    ).encode("utf-8")
+    tag = (f'<script src="/assets/project.js" data-sig="{esc(signature)}"></script>'
+           ).encode("utf-8")
 
     lowered = page.lower()
     at = lowered.rfind(b"</body>")
@@ -713,7 +734,7 @@ def inject_project_script(page: bytes, mode: str | None,
     return page[:at] + tag + b"\n" + page[at:]
 
 
-def presentation_page(meta: dict, mode: str | None = None) -> bytes:
+def presentation_page(meta: dict) -> bytes:
     slug = meta["slug"]
     pages = "\n".join(
         f'    <img class="izerp-page" src="pages/{esc(p["file"])}" alt="Page {i + 1}"'
@@ -728,7 +749,6 @@ def presentation_page(meta: dict, mode: str | None = None) -> bytes:
         "name": meta.get("name") or slug,
         "decks": others,
         "readOnly": READ_ONLY,
-        "mode": mode,
     }, ensure_ascii=False)
 
     # A storage key that carries the deck's fingerprint: the .izerp file stays
@@ -855,9 +875,15 @@ class Handler(BaseHTTPRequestHandler):
         return self.send_error_page(HTTPStatus.NOT_FOUND, "Nothing lives at this URL.")
 
     # The two things you do with a deck are different jobs, so they get
-    # different URLs: /edit is a workbench that reloads when the files change,
-    # /present is frozen and starts the talk. Send someone the second one.
-    MODE_ROUTES = {"edit": "editor", "present": "presentation"}
+    # different links: /edit is a workbench that reloads when files change,
+    # /present starts the talk and never reloads under the speaker.
+    #
+    # Both REDIRECT to the canonical /p/<slug>/#edit|#present. A project brings
+    # its own copy of the library, and older ones key localStorage on
+    # location.pathname — serving the same deck under three paths would give it
+    # three separate sets of slides, and work saved in the editor would be
+    # missing during the talk. The hash keeps one deck in one place.
+    MODE_ROUTES = {"edit": "edit", "present": "present"}
 
     def serve_deck(self, slug: str, rest: list[str]):
         if not deck.is_safe_slug(slug):
@@ -889,9 +915,9 @@ class Handler(BaseHTTPRequestHandler):
         if not rest:
             if self.needs_trailing_slash(slug):
                 return
-            return self.send_page(presentation_page(meta, None))
+            return self.send_page(presentation_page(meta))
         if len(rest) == 1 and rest[0] in self.MODE_ROUTES:
-            return self.send_page(presentation_page(meta, self.MODE_ROUTES[rest[0]]))
+            return self.redirect(f"/p/{urllib.parse.quote(slug)}/#{rest[0]}")
 
         if rest == ["deck.izerp"]:
             return self.send_static(deck_dir(slug) / "deck.izerp", cache="no-store")
@@ -913,24 +939,23 @@ class Handler(BaseHTTPRequestHandler):
         if rest == ["__watch"]:
             return self.serve_watch(root)
 
-        if not rest or (len(rest) == 1 and rest[0] in self.MODE_ROUTES):
-            if not rest and self.needs_trailing_slash(slug):
+        if len(rest) == 1 and rest[0] in self.MODE_ROUTES:
+            return self.redirect(f"/p/{urllib.parse.quote(slug)}/#{rest[0]}")
+
+        if not rest:
+            if self.needs_trailing_slash(slug):
                 return
             if not project["entry"]:
                 return self.send_error_page(
                     HTTPStatus.NOT_FOUND,
                     f"“{project['name']}” cannot be served: {project['reason']}")
-            mode = self.MODE_ROUTES.get(rest[0]) if rest else None
             entry = root / project["entry"]
             try:
                 page = entry.read_bytes()
             except OSError:
                 return self.send_error_page(HTTPStatus.NOT_FOUND,
                                             "The project's page file disappeared.")
-            # A talk must not reload under the speaker. Everywhere else it does.
-            watch = mode != "presentation"
-            return self.send_page(inject_project_script(
-                page, mode, watch, project_signature(root) if watch else ""))
+            return self.send_page(inject_project_script(page, project_signature(root)))
 
         return self.serve_project_file(root, rest)
 

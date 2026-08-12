@@ -68,16 +68,15 @@ ok "library files and page images served"
 [ -f "$DATA/smoke-deck/pages/0001.png" ]  || fail "page images are not on the volume"
 ok "everything landed on the mounted volume"
 
-# The two jobs have two URLs, and they must differ in exactly one way.
+# The two jobs get two links, and both land on the one canonical URL so a deck
+# never ends up with a separate set of slides per path.
 for route in present edit; do
-  curl -fsS "http://localhost:$PORT/p/smoke-deck/$route" | grep -q 'izerp-lib.js' \
-    || fail "/$route does not render the deck"
+  LOC="$(curl -fsS -o /dev/null -w '%{redirect_url}' "http://localhost:$PORT/p/smoke-deck/$route")"
+  case "$LOC" in
+    */p/smoke-deck/\#$route) ok "/$route → ${LOC##*/p/smoke-deck/}" ;;
+    *) fail "/$route should redirect to /p/smoke-deck/#$route, got: ${LOC:-nothing}" ;;
+  esac
 done
-curl -fsS "http://localhost:$PORT/p/smoke-deck/present" | grep -q '"mode": *"presentation"' \
-  || fail "/present does not ask for presentation mode"
-curl -fsS "http://localhost:$PORT/p/smoke-deck/edit" | grep -q '"mode": *"editor"' \
-  || fail "/edit does not ask for editor mode"
-ok "/present and /edit open the right mode"
 
 # The volume must stay usable from the host: a deck the container created has
 # to be deletable by whoever owns the mounted directory, without sudo.
