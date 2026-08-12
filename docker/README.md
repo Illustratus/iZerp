@@ -165,12 +165,37 @@ The library page checks for this and says so on the card, rather than leaving
 you with an inexplicable "no slides". Importing the `.izerp` once through
 **Settings → Open .izerp** works too, but only in that one browser.
 
+### Ship the library, or don't
+
+The container has a copy of `izerp-lib.js` and `izerp-lib.css`, so a project
+does not have to carry its own. Both ways work, and the page's markup is
+identical either way:
+
+```html
+<script src="./izerp-lib.js" data-slides="slides.izerp"></script>
+```
+
+- **The folder carries the files.** They are served as-is. The project stays
+  self-contained — the same folder works over `file://`, on GitHub Pages, or
+  behind any static server, and the version stays pinned to whatever the deck
+  was recorded against.
+- **The folder leaves them out.** The container serves its own copy at the same
+  URL. The folder stays small, and the library is always current.
+
+Nothing is rewritten to make this work: a file that exists always wins, and
+dropping the real one back in takes precedence again immediately. The library
+page states which of the two is in play, and which version — `library pinned
+1.1` or `library from the container 1.5.0`. Worth reading before wondering why
+the zoom behaves differently than it did last year.
+
+`izerp-fonts.css` is deliberately **not** bundled: it fetches web fonts, and
+this container makes no external requests.
+
 ### What the container does not touch
 
-Your markup, your assets and your `izerp-lib.js` are served byte for byte —
-including an older version of the library, if that is what the project pins.
-Files and folders starting with a dot (`.git`, `.env`) are never served, and a
-request cannot escape the project folder.
+Your markup and your assets are served byte for byte. Files and folders
+starting with a dot (`.git`, `.env`) are never served, and a request cannot
+escape the project folder.
 
 ---
 

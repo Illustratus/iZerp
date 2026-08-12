@@ -194,6 +194,7 @@ def read_project(slug: str) -> dict | None:
     return {
         "slug": slug,
         "kind": "html",
+        "library": project_library(root),
         "name": (config or {}).get("name") or slug,
         "entry": entry,
         "reason": reason,
@@ -201,6 +202,26 @@ def read_project(slug: str) -> dict | None:
         "wires_deck": wires_deck,
         "created": root.stat().st_mtime,
     }
+
+
+def project_library(root: Path) -> dict:
+    """Which copy of izerp-lib.js this project runs on, and which version.
+
+    A folder that carries its own copy stays self-contained — it works over
+    file://, on GitHub Pages, behind any static server. A folder that leaves it
+    out gets the container's, and the page's own `<script src="./izerp-lib.js">`
+    keeps working unchanged. Both are fine; which one is in play should not be
+    a guess, so it is on the card.
+    """
+    for candidate in sorted(root.rglob(deck.LIBRARY_FILES[0]))[:1]:
+        try:
+            version = deck.library_version(
+                candidate.read_text(encoding="utf-8", errors="ignore")[:8000])
+        except OSError:
+            version = None
+        return {"source": "project", "version": version,
+                "path": str(candidate.relative_to(root))}
+    return {"source": "container", "version": IZERP_VERSION, "path": None}
 
 
 def project_signature(root: Path, limit: int = 3000) -> str:
@@ -629,10 +650,14 @@ def project_card(meta: dict) -> str:
     slug = meta["slug"]
     servable = bool(meta.get("entry"))
     decks = meta.get("deck_files") or []
+    lib = meta.get("library") or {}
+    library = ("library " + ("pinned " if lib.get("source") == "project" else "from the container ")
+               + esc(lib.get("version") or "?"))
     if servable:
         detail = (f'entry <code>{esc(meta["entry"])}</code>'
                   + (f' · {esc(", ".join(decks[:2]))}' if decks
-                     else ' · no .izerp in the folder'))
+                     else ' · no .izerp in the folder')
+                  + f' · {library}')
     else:
         detail = f'<span class="off-page">{esc(meta.get("reason", "cannot be served"))}</span>'
 
@@ -965,11 +990,24 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_error_page(HTTPStatus.NOT_FOUND, "File not found.")
         try:
             target = (root / Path(*rest)).resolve()
-            if not target.is_relative_to(root.resolve()) or not target.is_file():
+            if not target.is_relative_to(root.resolve()):
                 raise ValueError
         except (ValueError, OSError):
             return self.send_error_page(HTTPStatus.NOT_FOUND, "File not found.")
-        return self.send_static(target, cache="no-store")
+
+        if target.is_file():
+            return self.send_static(target, cache="no-store")
+
+        # The project asked for the library but does not carry it. Serve the
+        # container's copy at the same URL, so `<script src="./izerp-lib.js">`
+        # works whether or not the folder ships one — and dropping the real
+        # file in later silently takes precedence again.
+        if rest[-1] in deck.LIBRARY_FILES:
+            bundled = resolve_asset(rest[-1])
+            if bundled:
+                return self.send_static(bundled, cache="no-store")
+
+        return self.send_error_page(HTTPStatus.NOT_FOUND, "File not found.")
 
     def serve_watch(self, root: Path):
         """Long poll: hold the request until a file changes, or give up quietly.

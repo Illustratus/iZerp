@@ -164,6 +164,16 @@ class ResolveEntry(unittest.TestCase):
         self.assertEqual(deck.resolve_entry(["index.html"], {"entry": 42})[0], "index.html")
 
 
+class LibraryVersion(unittest.TestCase):
+    def test_reads_the_declared_version(self):
+        self.assertEqual(deck.library_version("  const VERSION      = '1.1';"), "1.1")
+        self.assertEqual(deck.library_version('const VERSION = "1.5";'), "1.5")
+
+    def test_absent_or_unrecognisable(self):
+        self.assertIsNone(deck.library_version("// a minified bundle"))
+        self.assertIsNone(deck.library_version(""))
+
+
 class DeckFit(unittest.TestCase):
     """The check that catches an .izerp written for a different page."""
 

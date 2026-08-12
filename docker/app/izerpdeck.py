@@ -179,6 +179,23 @@ def build_deck(placed: dict, titles: list[str] | None = None,
 
 PROJECT_CONFIG = "izerp.json"
 
+# A project may ship its own copy of these — pinned to the version its slides
+# were recorded against — or leave them out and use the container's.
+LIBRARY_FILES = ("izerp-lib.js", "izerp-lib.css")
+
+_VERSION_RE = re.compile(r"""VERSION\s*=\s*['"]([0-9][0-9.]*)['"]""")
+
+
+def library_version(source: str) -> str | None:
+    """The version declared inside a copy of izerp-lib.js, if it says so.
+
+    Worth surfacing: a deck recorded against 1.1 and played by 1.5 is the kind
+    of difference that shows up as "the zoom is off" and takes an afternoon to
+    track down.
+    """
+    match = _VERSION_RE.search(source)
+    return match.group(1) if match else None
+
 
 def resolve_entry(names: list[str], config: dict | None = None) -> tuple[str | None, str]:
     """Which file in a project folder is the page? Returns (entry, reason).

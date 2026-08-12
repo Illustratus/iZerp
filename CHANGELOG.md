@@ -35,6 +35,14 @@ served live from the volume while you build it with your own toolchain.
   with the one-line fix (`data-slides="slides.izerp"`). Such a deck only ever
   existed in the browser it was authored in, and would otherwise show up here
   as an inexplicably empty presentation.
+- **A project need not carry `izerp-lib.js`/`.css`.** If the folder has them
+  they are served as-is and the project stays self-contained and version-pinned;
+  if it does not, the container serves its own copy at the same URL, so
+  `<script src="./izerp-lib.js">` works either way and nothing is rewritten.
+  Which copy is in play, and its version, is shown on the card (`library pinned
+  1.1` / `library from the container 1.5.0`) — a deck recorded against one
+  version and played by another is the kind of difference that surfaces as
+  "the zoom is off".
 - Directory traversal and dotfiles (`.git`, `.env`) are refused for project
   folders; `IZERP_WATCH_INTERVAL`, `IZERP_WATCH_QUIET`, `IZERP_WATCH_TIMEOUT`
   tune the watcher.

@@ -143,6 +143,17 @@ test('a live-reload script is injected into the project page', async ({ page }) 
   expect(sig).toMatch(/^[0-9a-f]{16}$/);
 });
 
+test('a project may leave out izerp-lib.js and get the container\'s', async ({ request }) => {
+  // The fixture folder does not carry the library; `<script src="./izerp-lib.js">`
+  // must still work, so a project can stay small without being rewritten.
+  const response = await request.get(`${HOST}/p/${PROJECT}/izerp-lib.js`);
+  expect(response.ok()).toBeTruthy();
+  expect(await response.text()).toContain('const VERSION');
+
+  // A file the folder really does not have is still a 404.
+  expect((await request.get(`${HOST}/p/${PROJECT}/nope.js`)).status()).toBe(404);
+});
+
 test('the watch endpoint reports a change and holds still otherwise', async ({ request }) => {
   const current = await request.get(`${HOST}/p/${PROJECT}/__watch?sig=stale`);
   expect(current.status()).toBe(200);
