@@ -1,0 +1,63 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Resources << /Font << /F1 9 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 209 >>
+stream
+0.06 0.05 0.04 rg 0 0 960 540 re f
+0.78 0.60 0.30 rg BT /F1 20 Tf 70 450 Td (01) Tj ET
+0.95 0.93 0.85 rg BT /F1 54 Tf 70 270 Td (Sample deck) Tj ET
+0.72 0.70 0.63 rg BT /F1 22 Tf 70 220 Td (Page 1 of 3) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Resources << /Font << /F1 9 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 209 >>
+stream
+0.06 0.05 0.04 rg 0 0 960 540 re f
+0.78 0.60 0.30 rg BT /F1 20 Tf 70 450 Td (02) Tj ET
+0.95 0.93 0.85 rg BT /F1 54 Tf 70 270 Td (Second page) Tj ET
+0.72 0.70 0.63 rg BT /F1 22 Tf 70 220 Td (Page 2 of 3) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Resources << /Font << /F1 9 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 208 >>
+stream
+0.06 0.05 0.04 rg 0 0 960 540 re f
+0.78 0.60 0.30 rg BT /F1 20 Tf 70 450 Td (03) Tj ET
+0.95 0.93 0.85 rg BT /F1 54 Tf 70 270 Td (Third page) Tj ET
+0.72 0.70 0.63 rg BT /F1 22 Tf 70 220 Td (Page 3 of 3) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000253 00000 n 
+0000000512 00000 n 
+0000000638 00000 n 
+0000000897 00000 n 
+0000001023 00000 n 
+0000001281 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+1351
+%%EOF

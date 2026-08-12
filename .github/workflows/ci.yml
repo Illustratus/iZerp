@@ -32,6 +32,19 @@ jobs:
             git --no-pager diff --stat -- dist/ || true
           fi
 
+  container-unit:
+    name: Deck-host geometry (python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check (stdlib only — there is nothing to install)
+        run: python3 -m compileall -q docker/app
+      - name: Unit tests for the canvas layout and .izerp generation
+        run: python3 -m unittest discover -s docker/app -v
+
   e2e:
     name: Playwright e2e (chromium)
     runs-on: ubuntu-latest

@@ -1,0 +1,176 @@
+name: Docker image
+
+# Builds the deck-host image, proves it actually serves a presentation, and
+# publishes it to Docker Hub.
+#
+#   push to main   → :edge
+#   tag v1.4.0     → :1.4.0, :1.4, :1, :latest
+#   pull request   → build + smoke test only, never pushed
+#
+# Repository settings needed once:
+#   Secrets   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN   (an access token, not the password)
+#   Variable  DOCKERHUB_IMAGE (optional)            defaults to illustratus/izerp
+
+on:
+  push:
+    branches: [main]
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  IMAGE: ${{ vars.DOCKERHUB_IMAGE || 'illustratus/izerp' }}
+
+jobs:
+  image:
+    name: Build · smoke test · publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version the image should carry
+        id: version
+        run: |
+          echo "izerp=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "container=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "container=$(node -p "require('./package.json').version")+${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Refuse to publish a tag that disagrees with package.json
+        if: github.ref_type == 'tag'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="${{ steps.version.outputs.izerp }}"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json ($pkg). Bump one of them."
+            exit 1
+          fi
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      # ── 1. Build for this runner and prove the thing works ────────────────
+      - name: Build (amd64, loaded locally)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          load: true
+          tags: izerp:ci
+          build-args: |
+            IZERP_VERSION=${{ steps.version.outputs.izerp }}
+            CONTAINER_VERSION=${{ steps.version.outputs.container }}
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test — upload a PDF and get a deck back
+        run: bash docker/smoke-test.sh izerp:ci
+
+      # A running container is the only place the whole promise can be checked:
+      # the upload form, the generated page, and iZerp actually presenting it.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: End-to-end against the running container
+        run: |
+          data="$(mktemp -d)"
+          # An HTML project is placed on the volume by hand — that is the whole
+          # point of it, so the test mounts one rather than uploading it.
+          cp -r test/e2e/fixtures/project "$data/project"
+          chmod -R a+rX "$data"
+          docker run -d --name izerp-e2e -p 8099:8080 -v "$data:/data" izerp:ci
+          for _ in $(seq 1 40); do
+            curl -fsS --max-time 2 http://localhost:8099/healthz >/dev/null 2>&1 && break
+            sleep 0.5
+          done
+          IZERP_HOST_URL=http://localhost:8099 npx playwright test container --reporter=list
+      - name: Container logs (on failure)
+        if: failure()
+        run: docker logs izerp-e2e || true
+      - name: Stop the test container
+        if: always()
+        run: docker rm -f izerp-e2e || true
+
+      # ── 2. Publish ────────────────────────────────────────────────────────
+      - name: Do we have Docker Hub credentials?
+        id: creds
+        env:
+          TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: echo "present=${{ env.TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request' && steps.creds.outputs.present == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Work out the image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.container }}
+
+      - name: Build and push (amd64 + arm64)
+        if: github.event_name != 'pull_request' && steps.creds.outputs.present == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            IZERP_VERSION=${{ steps.version.outputs.izerp }}
+            CONTAINER_VERSION=${{ steps.version.outputs.container }}
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Update the Docker Hub description
+        if: github.ref_type == 'tag' && steps.creds.outputs.present == 'true'
+        uses: peter-evans/dockerhub-description@v4
+        continue-on-error: true
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.IMAGE }}
+          short-description: Host zoom-and-pan presentations rendered from PDFs, with iZerp.
+          readme-filepath: docker/README.md
+
+      - name: Say what was published
+        if: always()
+        run: |
+          {
+            echo "### iZerp deck host"
+            echo ""
+            echo "- iZerp: \`${{ steps.version.outputs.izerp }}\`"
+            echo "- image version: \`${{ steps.version.outputs.container }}\`"
+            if [ "${{ steps.creds.outputs.present }}" = "true" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
+              echo "- pushed tags:"
+              echo '```'
+              echo "${{ steps.meta.outputs.tags }}"
+              echo '```'
+            else
+              echo "- not published (pull request, or no Docker Hub credentials configured)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

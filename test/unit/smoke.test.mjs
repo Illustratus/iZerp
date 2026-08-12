@@ -36,11 +36,16 @@ function boot({ body = '<div id="content-a">A</div><div id="content-b">B</div>',
   return dom;
 }
 
+const PKG_MAJOR_MINOR = JSON.parse(
+  readFileSync(fileURLToPath(new URL('../../package.json', import.meta.url)), 'utf8'),
+).version.split('.').slice(0, 2).join('.');
+
 test('default drop-in init wraps content and exposes the API', () => {
   const { window: w } = boot();
   const doc = w.document;
   assert.ok(w.iZerp, 'window.iZerp exists');
-  assert.equal(w.iZerp.version, '1.3');
+  // Read from package.json so a release bump touches one file, not three.
+  assert.equal(w.iZerp.version, PKG_MAJOR_MINOR);
   assert.ok(doc.getElementById('izerp-canvas-wrap'), 'canvas wrap created');
   assert.ok(doc.querySelector('#izerp-canvas-wrap #content-a'), 'content A wrapped');
   assert.ok(doc.querySelector('#izerp-canvas-wrap #content-b'), 'content B wrapped');

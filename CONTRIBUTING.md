@@ -60,6 +60,10 @@ the regenerated `dist/` — CI fails if `dist/` is out of sync with the source.
   Settings (colours, language, import/export), and `iZerp.destroy()` +
   re-`init()`.
 - Note behavioural changes in `CHANGELOG.md` under an *Unreleased* heading.
+- Touching the Docker deck host (`docker/`)? Run its own tests too:
+  `python3 -m unittest discover -s docker/app`, then
+  `docker build -f docker/Dockerfile -t izerp:dev . && docker/smoke-test.sh izerp:dev`.
+  Cutting a release is described in [RELEASING.md](RELEASING.md).
 
 ## Reporting bugs
 
