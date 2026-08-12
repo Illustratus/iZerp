@@ -127,6 +127,43 @@ class BuildDeck(unittest.TestCase):
         self.assertEqual(len(round_tripped["slides"]), len(built["slides"]))
 
 
+class ResolveEntry(unittest.TestCase):
+    """Which file in a dropped-in folder is the page."""
+
+    def test_index_html_wins(self):
+        self.assertEqual(deck.resolve_entry(["index.html", "other.html", "a.css"])[0],
+                         "index.html")
+
+    def test_a_single_html_file_is_unambiguous(self):
+        self.assertEqual(deck.resolve_entry(["poster.html", "style.css"])[0], "poster.html")
+
+    def test_several_html_files_are_not_guessed(self):
+        # The real case: a pandoc poster repo with template/css/js partials.
+        names = ["poster.pdf.html", "poster.css.html", "poster.js.html", "poster.tpl.html"]
+        entry, reason = deck.resolve_entry(names)
+        self.assertIsNone(entry)
+        self.assertIn("izerp.json", reason)
+        self.assertIn("4 HTML files", reason)
+
+    def test_config_names_the_entry(self):
+        names = ["poster.pdf.html", "poster.css.html"]
+        self.assertEqual(deck.resolve_entry(names, {"entry": "poster.pdf.html"})[0],
+                         "poster.pdf.html")
+
+    def test_config_pointing_at_a_missing_file_says_so(self):
+        entry, reason = deck.resolve_entry(["a.html"], {"entry": "gone.html"})
+        self.assertIsNone(entry)
+        self.assertIn("gone.html", reason)
+
+    def test_no_html_at_all(self):
+        entry, reason = deck.resolve_entry(["notes.md", "image.png"])
+        self.assertIsNone(entry)
+        self.assertIn("No HTML file", reason)
+
+    def test_a_bad_config_does_not_win_over_a_real_index(self):
+        self.assertEqual(deck.resolve_entry(["index.html"], {"entry": 42})[0], "index.html")
+
+
 class DeckFit(unittest.TestCase):
     """The check that catches an .izerp written for a different page."""
 

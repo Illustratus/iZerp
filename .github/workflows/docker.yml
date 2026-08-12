@@ -83,7 +83,12 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: End-to-end against the running container
         run: |
-          docker run -d --name izerp-e2e -p 8099:8080 -v "$(mktemp -d):/data" izerp:ci
+          data="$(mktemp -d)"
+          # An HTML project is placed on the volume by hand — that is the whole
+          # point of it, so the test mounts one rather than uploading it.
+          cp -r test/e2e/fixtures/project "$data/project"
+          chmod -R a+rX "$data"
+          docker run -d --name izerp-e2e -p 8099:8080 -v "$data:/data" izerp:ci
           for _ in $(seq 1 40); do
             curl -fsS --max-time 2 http://localhost:8099/healthz >/dev/null 2>&1 && break
             sleep 0.5

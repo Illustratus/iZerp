@@ -4,6 +4,40 @@ All notable changes to iZerp are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] — 2026-08-12
+
+The deck host learns the second way in: a folder that is already an iZerp page,
+served live from the volume while you build it with your own toolchain.
+
+### Added
+
+- **HTML projects.** Copy a folder containing an iZerp page into the data
+  directory and it appears in the library — never uploaded, never converted,
+  served byte for byte including the copy of `izerp-lib.js` the project pins.
+  The entry file is `index.html`, or the only `.html` in the folder, or the one
+  named by an `izerp.json` (`{"name": …, "entry": …}`). With several HTML files
+  and no hint, nothing is guessed and the library says what to add — a Pandoc
+  poster repo holds `poster.pdf.html`, `poster.css.html` and `poster.tpl.html`,
+  and serving the wrong one looks like a broken project.
+- **Live reload.** The page reloads when a file in the project folder changes,
+  through a long-poll endpoint and one injected script tag. The container runs
+  no build of its own: run `make`, `vite` or Pandoc on the host and the browser
+  follows. A change is debounced until the folder holds still, so a build that
+  writes a dozen files reloads the page once, not a dozen times.
+- **`/p/<slug>/edit` and `/p/<slug>/present`** — the two jobs as two URLs, for
+  PDF decks and HTML projects alike. `/present` opens straight into the talk
+  and is deliberately **not** reloaded when files change; `/edit` opens the
+  editor and is. Both are on the library card.
+- Directory traversal and dotfiles (`.git`, `.env`) are refused for project
+  folders; `IZERP_WATCH_INTERVAL`, `IZERP_WATCH_QUIET`, `IZERP_WATCH_TIMEOUT`
+  tune the watcher.
+
+### Changed
+
+- The library's *Present* button uses the `/present` route instead of a
+  `#present` fragment, so the mode is decided by the server and the link
+  survives being copied.
+
 ## [1.4.0] — 2026-08-12
 
 Adds an official way to **host** presentations: a Docker image that turns a PDF
@@ -133,5 +167,6 @@ First public release. Generalised from an internal tool into a drop-in library.
 - Remaining hard-coded German UI strings are now localised (`toastImported`,
   update-button tooltip).
 
+[1.5.0]: https://github.com/Illustratus/iZerp/releases/tag/v1.5.0
 [1.4.0]: https://github.com/Illustratus/iZerp/releases/tag/v1.4.0
 [1.3.0]: https://github.com/Illustratus/iZerp/releases/tag/v1.3.0

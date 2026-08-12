@@ -1,0 +1,8 @@
+{
+  "version": "1.3",
+  "slides": [
+    { "id": "a", "title": "One", "cx": 1000, "cy": 650, "scale": 1.08, "vw": 1920, "vh": 1080, "notes": "first" },
+    { "id": "b", "title": "Two", "cx": 2800, "cy": 650, "scale": 1.08, "vw": 1920, "vh": 1080, "notes": "second" }
+  ],
+  "settings": {}
+}

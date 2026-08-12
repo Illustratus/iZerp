@@ -99,6 +99,51 @@ test('the deck file is served and is valid .izerp JSON', async ({ request }) => 
   expect(deck.slides[0]).toMatchObject({ vw: 1920, vh: 1080 });
 });
 
+// ── HTML projects ────────────────────────────────────────────────────────
+// A folder placed on the volume by hand (CI copies test/e2e/fixtures/project
+// there before starting the container). Nothing is uploaded or converted.
+const PROJECT = 'project';
+
+test('a folder dropped on the volume is listed and served as-is', async ({ page }) => {
+  await page.goto(`${HOST}/`);
+  const card = page.locator(`.deck:has(a[href^="/p/${PROJECT}/"])`);
+  await expect(card).toBeVisible();
+  await expect(card.locator('.deck-meta')).toContainText('html project');
+  await expect(card.locator('.deck-meta')).toContainText('poster.html');
+
+  // The project's own files, untouched.
+  const raw = await page.request.get(`${HOST}/p/${PROJECT}/slides.izerp`);
+  expect((await raw.json()).slides).toHaveLength(2);
+});
+
+test('/edit opens the editor and wires live reload, /present does neither', async ({ page }) => {
+  await page.goto(`${HOST}/p/${PROJECT}/edit`);
+  await page.waitForFunction(() => window.iZerp && window.iZerp.isReady());
+  await expect(page.locator('#izerp-root')).toHaveAttribute('data-mode', 'editor');
+  expect(await page.evaluate(
+    () => document.querySelector('script[src="/assets/project.js"]')?.dataset.watch)).toBe('1');
+
+  await page.goto(`${HOST}/p/${PROJECT}/present`);
+  await page.waitForFunction(() => window.iZerp && window.iZerp.isReady());
+  await expect(page.locator('#izerp-root')).toHaveAttribute('data-mode', 'presentation');
+  // A talk must never reload under the speaker.
+  expect(await page.evaluate(
+    () => document.querySelector('script[src="/assets/project.js"]')?.dataset.watch)).toBe('');
+});
+
+test('the watch endpoint reports a change and holds still otherwise', async ({ request }) => {
+  const current = await request.get(`${HOST}/p/${PROJECT}/__watch?sig=stale`);
+  expect(current.status()).toBe(200);
+  const { sig } = await current.json();
+  expect(sig).toMatch(/^[0-9a-f]{16}$/);
+});
+
+test('a project folder cannot serve files outside itself', async ({ request }) => {
+  for (const path of ['/p/project/../../etc/passwd', '/p/project/.git/config']) {
+    expect((await request.get(HOST + path, { maxRedirects: 0 })).status()).toBe(404);
+  }
+});
+
 test('a non-PDF is refused with a sentence, not a stack trace', async ({ page }) => {
   await page.goto(`${HOST}/`);
   await page.setInputFiles('input[name="pdf"]', {

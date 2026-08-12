@@ -172,6 +172,43 @@ def build_deck(placed: dict, titles: list[str] | None = None,
     return {"version": DECK_FORMAT_VERSION, "slides": slides, "settings": {}}
 
 
+# ── HTML projects ─────────────────────────────────────────────────────────
+# A folder on the volume that is already a working iZerp page: an HTML file,
+# its assets, and a .izerp next to them. The container serves it as-is — the
+# project owns its files, including which copy of the library it loads.
+
+PROJECT_CONFIG = "izerp.json"
+
+
+def resolve_entry(names: list[str], config: dict | None = None) -> tuple[str | None, str]:
+    """Which file in a project folder is the page? Returns (entry, reason).
+
+    Never guesses between several candidates: a poster repo can easily hold
+    `poster.pdf.html`, `poster.css.html` and `poster.tpl.html`, and picking the
+    wrong one would serve a fragment and look like a broken project. When it is
+    ambiguous the reason says exactly what to add.
+    """
+    if config and isinstance(config.get("entry"), str):
+        entry = config["entry"]
+        if entry in names:
+            return entry, ""
+        return None, f"izerp.json names “{entry}”, but that file is not in the folder."
+
+    if "index.html" in names:
+        return "index.html", ""
+
+    html = sorted(n for n in names if n.lower().endswith((".html", ".htm")))
+    if len(html) == 1:
+        return html[0], ""
+    if not html:
+        return None, "No HTML file in this folder."
+    return None, (
+        f"{len(html)} HTML files here ({', '.join(html[:3])}"
+        f"{', …' if len(html) > 3 else ''}) — add an index.html, or an "
+        f"{PROJECT_CONFIG} with {{\"entry\": \"…\"}} naming the page."
+    )
+
+
 def content_box(placed: dict) -> tuple[float, float, float, float]:
     """The rectangle the pages actually occupy (the margin around them is empty)."""
     pages = placed["pages"]

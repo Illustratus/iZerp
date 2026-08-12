@@ -24,6 +24,7 @@ puts every uploaded deck wherever the user wants it.
 
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import mmap
@@ -54,6 +55,13 @@ GAP = max(0, int(os.environ.get("IZERP_GAP", "200")))
 SITE_TITLE = os.environ.get("IZERP_TITLE", "iZerp")
 UI_LANG = os.environ.get("IZERP_LANG", "auto")
 READ_ONLY = os.environ.get("IZERP_READ_ONLY", "") in ("1", "true", "yes")
+# Live reload: how long a watch request waits, and how often it looks.
+WATCH_TIMEOUT = max(5, min(120, int(os.environ.get("IZERP_WATCH_TIMEOUT", "25"))))
+WATCH_INTERVAL = max(0.1, min(5.0, float(os.environ.get("IZERP_WATCH_INTERVAL", "0.4"))))
+# After a change: how long the folder must hold still before the browser
+# reloads, and how long to wait for that quiet at most.
+WATCH_QUIET = max(0.0, min(30.0, float(os.environ.get("IZERP_WATCH_QUIET", "1.2"))))
+WATCH_SETTLE = max(WATCH_QUIET, min(120.0, float(os.environ.get("IZERP_WATCH_SETTLE", "20.0"))))
 
 IZERP_VERSION = os.environ.get("IZERP_VERSION", "dev")
 CONTAINER_VERSION = os.environ.get("IZERP_CONTAINER_VERSION", "dev")
@@ -80,14 +88,22 @@ def resolve_asset(name: str) -> "Path | None":
 
 
 MIME = {
-    ".html": "text/html; charset=utf-8",
+    ".html": "text/html; charset=utf-8", ".htm": "text/html; charset=utf-8",
     ".css": "text/css; charset=utf-8",
-    ".js": "text/javascript; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
     ".json": "application/json; charset=utf-8",
     ".izerp": "application/json; charset=utf-8",
-    ".png": "image/png",
+    ".map": "application/json; charset=utf-8",
+    ".txt": "text/plain; charset=utf-8", ".md": "text/plain; charset=utf-8",
+    ".csv": "text/csv; charset=utf-8", ".xml": "application/xml; charset=utf-8",
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".gif": "image/gif", ".webp": "image/webp", ".avif": "image/avif",
+    ".svg": "image/svg+xml", ".ico": "image/x-icon",
+    ".woff": "font/woff", ".woff2": "font/woff2",
+    ".ttf": "font/ttf", ".otf": "font/otf",
     ".pdf": "application/pdf",
-    ".svg": "image/svg+xml",
+    ".mp4": "video/mp4", ".webm": "video/webm",
+    ".mp3": "audio/mpeg", ".wav": "audio/wav",
 }
 
 
@@ -120,9 +136,84 @@ def list_decks() -> list[dict]:
             continue
         meta = read_meta(entry.name)
         if meta:
+            meta.setdefault("kind", "pdf")
             decks.append(meta)
+            continue
+        # Not a rendered PDF deck — maybe an HTML project placed here by hand.
+        project = read_project(entry.name)
+        if project:
+            decks.append(project)
     decks.sort(key=lambda m: m.get("created", 0), reverse=True)
     return decks
+
+
+def read_project(slug: str) -> dict | None:
+    """A folder someone dropped on the volume that is already an iZerp page.
+
+    Not uploaded and not converted — the project owns its files, including
+    which copy of izerp-lib.js it loads. The container is a web server, a file
+    watcher and two mode routes; nothing here rewrites the project.
+    """
+    root = deck_dir(slug)
+    if not root.is_dir():
+        return None
+
+    config = None
+    config_file = root / deck.PROJECT_CONFIG
+    if config_file.is_file():
+        try:
+            config = json.loads(config_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, ValueError):
+            config = None
+        if not isinstance(config, dict):
+            config = None
+
+    try:
+        names = [p.name for p in root.iterdir()
+                 if p.is_file() and not p.name.startswith(".")]
+    except OSError:
+        return None
+
+    entry, reason = deck.resolve_entry(names, config)
+    decks = sorted(n for n in names if n.endswith(".izerp"))
+    return {
+        "slug": slug,
+        "kind": "html",
+        "name": (config or {}).get("name") or slug,
+        "entry": entry,
+        "reason": reason,
+        "deck_files": decks,
+        "created": root.stat().st_mtime,
+    }
+
+
+def project_signature(root: Path, limit: int = 3000) -> str:
+    """A fingerprint of every file in the project — the live-reload trigger.
+
+    Names, sizes and modification times only: reading the bytes of a 7 MB asset
+    folder every 400 ms would be the wrong kind of eager.
+    """
+    digest = hashlib.sha256()
+    seen = 0
+    try:
+        for path in sorted(root.rglob("*")):
+            rel = path.relative_to(root)
+            if any(part.startswith(".") for part in rel.parts):
+                continue
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            if not path.is_file():
+                continue
+            digest.update(f"{rel}|{stat.st_mtime_ns}|{stat.st_size}\n".encode("utf-8"))
+            seen += 1
+            if seen >= limit:
+                digest.update(b"truncated")
+                break
+    except OSError:
+        pass
+    return digest.hexdigest()[:16]
 
 
 def taken_slugs() -> set[str]:
@@ -315,7 +406,6 @@ def _content_box_of(meta: dict) -> tuple[float, float, float, float]:
 
 
 def _short_hash(text: str) -> str:
-    import hashlib
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:10]
 
 
@@ -461,17 +551,25 @@ def mismatch_badge(meta: dict) -> str:
             f'{esc(fit["outside"])}/{esc(fit["total"])} slides off-page</span>')
 
 
-def library_page(message: str | None = None, tone: str = "ok") -> bytes:
-    decks = list_decks()
+def deck_card(meta: dict) -> str:
+    return (project_card(meta) if meta.get("kind") == "html" else pdf_card(meta))
 
-    cards = []
-    for meta in decks:
-        slug = meta["slug"]
-        first = meta["pages"][0]["file"] if meta.get("pages") else None
-        thumb = (f'<img class="thumb" src="/p/{esc(slug)}/pages/{esc(first)}" alt="" loading="lazy">'
-                 if first else '<div class="thumb thumb-empty"></div>')
-        generated = meta.get("deck_source") == "generated"
-        cards.append(f"""
+
+def mode_buttons(slug: str) -> str:
+    """The two jobs, as two links. Present is the one you send to someone."""
+    return (
+        f'<a class="btn btn-primary" href="/p/{esc(slug)}/present">Present</a>'
+        f'<a class="btn" href="/p/{esc(slug)}/edit">Edit</a>'
+    )
+
+
+def pdf_card(meta: dict) -> str:
+    slug = meta["slug"]
+    first = meta["pages"][0]["file"] if meta.get("pages") else None
+    thumb = (f'<img class="thumb" src="/p/{esc(slug)}/pages/{esc(first)}" alt="" loading="lazy">'
+             if first else '<div class="thumb thumb-empty"></div>')
+    generated = meta.get("deck_source") == "generated"
+    return f"""
       <article class="deck">
         <a class="deck-open" href="/p/{esc(slug)}/">{thumb}</a>
         <div class="deck-body">
@@ -483,7 +581,7 @@ def library_page(message: str | None = None, tone: str = "ok") -> bytes:
             {mismatch_badge(meta)}
           </p>
           <div class="deck-actions">
-            <a class="btn btn-primary" href="/p/{esc(slug)}/#present">Present</a>
+            {mode_buttons(slug)}
             <a class="btn" href="/p/{esc(slug)}/deck.izerp" download="{esc(slug)}.izerp">Deck</a>
             <a class="btn" href="/p/{esc(slug)}/source.pdf" download>PDF</a>
           </div>
@@ -503,13 +601,50 @@ def library_page(message: str | None = None, tone: str = "ok") -> bytes:
             </form>
           </details>'''}
         </div>
-      </article>""")
+      </article>"""
+
+
+def project_card(meta: dict) -> str:
+    """A folder on the volume that is already an iZerp page.
+
+    Never uploaded, never converted, and never deleted from here — it is the
+    user's project directory, and the container only serves it.
+    """
+    slug = meta["slug"]
+    servable = bool(meta.get("entry"))
+    decks = meta.get("deck_files") or []
+    detail = (f'entry <code>{esc(meta["entry"])}</code>'
+              + (f' · {esc(", ".join(decks[:2]))}' if decks else ' · no .izerp in the folder')
+              if servable else
+              f'<span class="off-page">{esc(meta.get("reason", "cannot be served"))}</span>')
+    return f"""
+      <article class="deck">
+        <div class="deck-open"><div class="thumb thumb-empty thumb-html">&lt;/&gt;</div></div>
+        <div class="deck-body">
+          <h3>{f'<a href="/p/{esc(slug)}/">{esc(meta.get("name") or slug)}</a>'
+               if servable else esc(meta.get('name') or slug)}</h3>
+          <p class="deck-meta">html project · {detail}</p>
+          <div class="deck-actions">
+            {mode_buttons(slug) + f'<a class="btn" href="/p/{esc(slug)}/">Open</a>'
+             if servable else ''}
+          </div>
+        </div>
+      </article>"""
+
+
+def library_page(message: str | None = None, tone: str = "ok") -> bytes:
+    decks = list_decks()
+
+    cards = [deck_card(meta) for meta in decks]
 
     empty = """
       <div class="empty">
         <h3>No presentations yet</h3>
-        <p>Drop a PDF into the form above. Every page becomes a card on one big
-           canvas, and iZerp flies the camera from page to page.</p>
+        <p>Drop a PDF into the form above — every page becomes a card on one big
+           canvas, and iZerp flies the camera from page to page. Or copy a folder
+           that already contains an iZerp page into the data directory: it shows
+           up here, and <strong>Edit</strong> reloads it whenever you change a
+           file.</p>
       </div>""" if not decks else ""
 
     upload = "" if READ_ONLY else """
@@ -554,7 +689,31 @@ def library_page(message: str | None = None, tone: str = "ok") -> bytes:
     return page_shell(SITE_TITLE, body)
 
 
-def presentation_page(meta: dict) -> bytes:
+def inject_project_script(page: bytes, mode: str | None,
+                          watch: bool, signature: str) -> bytes:
+    """Add one script tag to the project's own HTML — and change nothing else.
+
+    The project's markup, its assets and its copy of izerp-lib.js are served
+    exactly as they are on disk. This single tag carries the mode the route
+    asked for and the fingerprint the live reload polls against.
+    """
+    tag = (
+        f'<script src="/assets/project.js"'
+        f' data-mode="{esc(mode or "")}"'
+        f' data-watch="{"1" if watch else ""}"'
+        f' data-sig="{esc(signature)}"></script>'
+    ).encode("utf-8")
+
+    lowered = page.lower()
+    at = lowered.rfind(b"</body>")
+    if at == -1:
+        at = lowered.rfind(b"</html>")
+    if at == -1:
+        return page + b"\n" + tag + b"\n"
+    return page[:at] + tag + b"\n" + page[at:]
+
+
+def presentation_page(meta: dict, mode: str | None = None) -> bytes:
     slug = meta["slug"]
     pages = "\n".join(
         f'    <img class="izerp-page" src="pages/{esc(p["file"])}" alt="Page {i + 1}"'
@@ -569,6 +728,7 @@ def presentation_page(meta: dict) -> bytes:
         "name": meta.get("name") or slug,
         "decks": others,
         "readOnly": READ_ONLY,
+        "mode": mode,
     }, ensure_ascii=False)
 
     # A storage key that carries the deck's fingerprint: the .izerp file stays
@@ -694,21 +854,44 @@ class Handler(BaseHTTPRequestHandler):
 
         return self.send_error_page(HTTPStatus.NOT_FOUND, "Nothing lives at this URL.")
 
+    # The two things you do with a deck are different jobs, so they get
+    # different URLs: /edit is a workbench that reloads when the files change,
+    # /present is frozen and starts the talk. Send someone the second one.
+    MODE_ROUTES = {"edit": "editor", "present": "presentation"}
+
     def serve_deck(self, slug: str, rest: list[str]):
         if not deck.is_safe_slug(slug):
             return self.send_error_page(HTTPStatus.NOT_FOUND, "Unknown presentation.")
+
         meta = read_meta(slug)
-        if meta is None:
-            return self.send_error_page(
-                HTTPStatus.NOT_FOUND,
-                "That presentation is not on this volume (any more).")
+        if meta is not None:
+            return self.serve_pdf_deck(meta, rest)
+
+        project = read_project(slug)
+        if project is not None and (project["entry"] or project["reason"]):
+            return self.serve_project(project, rest)
+
+        return self.send_error_page(
+            HTTPStatus.NOT_FOUND,
+            "That presentation is not on this volume (any more).")
+
+    def needs_trailing_slash(self, slug: str) -> bool:
+        """Relative asset URLs inside the page only resolve under the slash."""
+        if self.path.split("?")[0].endswith("/"):
+            return False
+        self.redirect(f"/p/{urllib.parse.quote(slug)}/")
+        return True
+
+    # ── a deck the container rendered from a PDF ──────────────────────────
+    def serve_pdf_deck(self, meta: dict, rest: list[str]):
+        slug = meta["slug"]
 
         if not rest:
-            if not self.path.endswith("/"):
-                # Relative data-slides / page URLs only resolve under a trailing slash.
-                return self.redirect(f"/p/{urllib.parse.quote(slug)}/")
-            return self.send_bytes(presentation_page(meta), MIME[".html"],
-                                   headers={"Cache-Control": "no-store"})
+            if self.needs_trailing_slash(slug):
+                return
+            return self.send_page(presentation_page(meta, None))
+        if len(rest) == 1 and rest[0] in self.MODE_ROUTES:
+            return self.send_page(presentation_page(meta, self.MODE_ROUTES[rest[0]]))
 
         if rest == ["deck.izerp"]:
             return self.send_static(deck_dir(slug) / "deck.izerp", cache="no-store")
@@ -721,6 +904,86 @@ class Handler(BaseHTTPRequestHandler):
                                     cache="public, max-age=86400")
 
         return self.send_error_page(HTTPStatus.NOT_FOUND, "Unknown file.")
+
+    # ── a folder that is already an iZerp page ────────────────────────────
+    def serve_project(self, project: dict, rest: list[str]):
+        slug = project["slug"]
+        root = deck_dir(slug)
+
+        if rest == ["__watch"]:
+            return self.serve_watch(root)
+
+        if not rest or (len(rest) == 1 and rest[0] in self.MODE_ROUTES):
+            if not rest and self.needs_trailing_slash(slug):
+                return
+            if not project["entry"]:
+                return self.send_error_page(
+                    HTTPStatus.NOT_FOUND,
+                    f"“{project['name']}” cannot be served: {project['reason']}")
+            mode = self.MODE_ROUTES.get(rest[0]) if rest else None
+            entry = root / project["entry"]
+            try:
+                page = entry.read_bytes()
+            except OSError:
+                return self.send_error_page(HTTPStatus.NOT_FOUND,
+                                            "The project's page file disappeared.")
+            # A talk must not reload under the speaker. Everywhere else it does.
+            watch = mode != "presentation"
+            return self.send_page(inject_project_script(
+                page, mode, watch, project_signature(root) if watch else ""))
+
+        return self.serve_project_file(root, rest)
+
+    def serve_project_file(self, root: Path, rest: list[str]):
+        """Anything else in the folder — sandboxed to the folder, no dotfiles."""
+        if any(part.startswith(".") or part in ("", "..") for part in rest):
+            return self.send_error_page(HTTPStatus.NOT_FOUND, "File not found.")
+        try:
+            target = (root / Path(*rest)).resolve()
+            if not target.is_relative_to(root.resolve()) or not target.is_file():
+                raise ValueError
+        except (ValueError, OSError):
+            return self.send_error_page(HTTPStatus.NOT_FOUND, "File not found.")
+        return self.send_static(target, cache="no-store")
+
+    def serve_watch(self, root: Path):
+        """Long poll: hold the request until a file changes, or give up quietly.
+
+        Long polling rather than SSE — plain requests with a Content-Length
+        behave correctly through http.server, proxies and page reloads, and the
+        client side is five lines.
+        """
+        want = urllib.parse.parse_qs(
+            urllib.parse.urlsplit(self.path).query).get("sig", [""])[0]
+        deadline = time.monotonic() + WATCH_TIMEOUT
+        while time.monotonic() < deadline:
+            current = project_signature(root)
+            if current != want:
+                # A build writes a dozen files over several seconds. Reload
+                # once the folder has held still for a moment, not once per
+                # written file — otherwise `make` reloads the page repeatedly
+                # while it is still running.
+                give_up_at = time.monotonic() + WATCH_SETTLE
+                quiet_since = time.monotonic()
+                while time.monotonic() < give_up_at:
+                    time.sleep(WATCH_INTERVAL)
+                    again = project_signature(root)
+                    if again != current:
+                        current = again
+                        quiet_since = time.monotonic()
+                    elif time.monotonic() - quiet_since >= WATCH_QUIET:
+                        break
+                return self.send_bytes(
+                    json.dumps({"sig": current}).encode(), MIME[".json"],
+                    headers={"Cache-Control": "no-store"})
+            time.sleep(WATCH_INTERVAL)
+        self.send_response(HTTPStatus.NO_CONTENT)
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
+    def send_page(self, payload: bytes):
+        self.send_bytes(payload, MIME[".html"], headers={"Cache-Control": "no-store"})
 
     def do_POST(self):
         # The request body may only be read once — draining it again after

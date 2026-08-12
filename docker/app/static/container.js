@@ -106,10 +106,10 @@
       bar.classList.toggle('izerp-host-away', mode !== 'idle');
     });
 
-    // "Present" in the library links to /p/<slug>/#present — one click from
-    // the list to a running talk instead of list → page → FAB → menu → mode.
-    if (location.hash === '#present' && window.iZerp && window.iZerp.isReady()) {
-      window.iZerp.setMode('presentation');
+    // /p/<slug>/present and /p/<slug>/edit ask for a mode up front — one click
+    // from the library to a running talk instead of list → page → FAB → menu.
+    if (boot.mode && window.iZerp && window.iZerp.isReady()) {
+      window.iZerp.setMode(boot.mode);
     }
   }
 

@@ -27,14 +27,16 @@ Open <http://localhost:8080>, upload a PDF, press **Present**.
 
 1. [Quick start](#quick-start)
 2. [The volume — where your files live](#the-volume--where-your-files-live)
-3. [Several presentations, one host](#several-presentations-one-host)
-4. [Bringing your own slides](#bringing-your-own-slides)
-5. [The canvas layout](#the-canvas-layout)
-6. [Configuration](#configuration)
-7. [Security — read this before exposing it](#security--read-this-before-exposing-it)
-8. [Tags and versions](#tags-and-versions)
-9. [Building it yourself](#building-it-yourself)
-10. [Limitations](#limitations)
+3. [HTML projects — edit, save, watch it reload](#html-projects--edit-save-watch-it-reload)
+4. [Two URLs: /edit and /present](#two-urls-edit-and-present)
+5. [Several presentations, one host](#several-presentations-one-host)
+6. [Bringing your own slides](#bringing-your-own-slides)
+7. [The canvas layout](#the-canvas-layout)
+8. [Configuration](#configuration)
+9. [Security — read this before exposing it](#security--read-this-before-exposing-it)
+10. [Tags and versions](#tags-and-versions)
+11. [Building it yourself](#building-it-yourself)
+12. [Limitations](#limitations)
 
 ---
 
@@ -101,6 +103,77 @@ Because it is just files:
   change up on the next page load — no restart needed).
 - **Adding** one by hand works too: drop a folder with the same four files in
   and it appears in the library.
+
+---
+
+## HTML projects — edit, save, watch it reload
+
+A PDF is one way in. The other is a folder that is **already** an iZerp page:
+your HTML, your assets, your `.izerp`, your copy of the library. Copy it into
+the data directory and it appears in the library — nothing is uploaded and
+nothing is converted.
+
+```bash
+cp -r ~/work/poster /path/to/decks/poster
+```
+
+The container serves that folder **exactly as it is on disk** and adds one
+script tag, which does two things: it applies the mode the URL asked for, and
+it reloads the page when a file in the folder changes.
+
+That makes the folder a live preview of your own build:
+
+```bash
+# terminal 1 — the host, watching
+docker run -p 8080:8080 -v "$PWD/decks:/data" illustratus/izerp
+
+# terminal 2 — your toolchain, unchanged
+cd decks/poster && make html      # or vite build, pandoc, esbuild, a text editor…
+```
+
+Save a file, run your build, and the browser reloads within a second. The
+container has **no** build step of its own — no Node, no Pandoc, no bundler in
+the image. It watches names, sizes and modification times, waits until the
+folder holds still (so `make` does not reload the page once per written file),
+and then reloads once.
+
+### Which file is the page?
+
+- `index.html` if there is one.
+- Otherwise the only `.html` file in the folder.
+- Otherwise nothing is guessed — a Pandoc poster repo can hold
+  `poster.pdf.html`, `poster.css.html` and `poster.tpl.html`, and serving the
+  wrong one would look like a broken project. Add an `izerp.json`:
+
+  ```json
+  { "name": "NL2SQL Poster", "entry": "poster.pdf.html" }
+  ```
+
+The library page tells you which of these applies, per folder.
+
+### What the container does not touch
+
+Your markup, your assets and your `izerp-lib.js` are served byte for byte —
+including an older version of the library, if that is what the project pins.
+Files and folders starting with a dot (`.git`, `.env`) are never served, and a
+request cannot escape the project folder.
+
+---
+
+## Two URLs: /edit and /present
+
+The two things you do with a deck are different jobs, so they have different
+URLs. Both work for a PDF deck and for an HTML project.
+
+| URL | For | Live reload |
+| --- | --- | --- |
+| `/p/<slug>/` | Opening it, looking around | yes |
+| `/p/<slug>/edit` | Placing slides, adjusting the camera | yes |
+| `/p/<slug>/present` | The talk | **no** |
+
+`/present` is deliberately frozen: a page that reloads itself in the middle of a
+talk is worse than a stale one. It is also the link to send to someone — it
+opens straight into the presentation, no menu, no clicks.
 
 ---
 
@@ -209,6 +282,9 @@ All optional, all environment variables:
 | `IZERP_RENDER_WIDTH`  | `1600`    | Page width in canvas pixels. Higher = sharper zoom, bigger files.  |
 | `IZERP_GAP`           | `200`     | Gap between pages on the canvas, in canvas pixels.                 |
 | `IZERP_MAX_UPLOAD_MB` | `200`     | Upload limit. Larger uploads are refused with a message.           |
+| `IZERP_WATCH_INTERVAL`| `0.4`     | Seconds between file checks for live reload.                       |
+| `IZERP_WATCH_QUIET`   | `1.2`     | Seconds the folder must hold still after a change before reloading.|
+| `IZERP_WATCH_TIMEOUT` | `25`      | Seconds a watch request waits before the browser asks again.       |
 | `IZERP_READ_ONLY`     | unset     | `1` → serve existing decks; refuse every upload, replace, delete.  |
 
 `GET /healthz` returns JSON with the deck count and both versions — the image
@@ -298,8 +374,13 @@ requirements file. The layout maths lives in
 ## Limitations
 
 - **PDF in, presentation out.** PowerPoint or Keynote files must be exported to
-  PDF first. Text in the deck becomes an image, so it is not selectable and not
-  searchable.
+  PDF first. Text in a rendered PDF deck becomes an image, so it is not
+  selectable and not searchable. An HTML project keeps real text.
+- **No build step in the container.** It watches a folder; it does not run
+  `make`, `npm` or Pandoc. That is deliberate — it keeps the image small and
+  your toolchain yours. Run the build on the host and the reload follows.
+- **Projects are not uploaded or deleted from the web page.** A project folder
+  is yours; copy it in and remove it with the tools you already use.
 - **No authentication.** See above.
 - **A phone in portrait shows the page small.** Slides are captured against a
   1920×1080 reference; iZerp keeps the whole captured area visible, so a very

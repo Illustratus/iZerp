@@ -1,6 +1,6 @@
 {
   "name": "izerp",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Turn any HTML page into a zoom-and-pan (Prezi-style) presentation. Two files, no build, no dependencies.",
   "keywords": [
     "presentation",
