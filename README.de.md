@@ -5,6 +5,7 @@
   <img src="https://img.shields.io/badge/dependencies-none-c69a4c.svg" alt="No dependencies">
   <img src="https://img.shields.io/badge/build-not%20required-c69a4c.svg" alt="No build step">
   <img src="https://img.shields.io/badge/types-included-c69a4c.svg" alt="TypeScript types included">
+  <a href="https://hub.docker.com/r/illustratus/izerp"><img src="https://img.shields.io/docker/v/illustratus/izerp?label=docker&color=c69a4c" alt="Docker image"></a>
 </p>
 
 > 🌐 **Sprache:** Deutsch (diese Datei) · [English](README.md)
@@ -39,7 +40,9 @@ iZerp besteht im Kern aus **zwei Dateien** und kennt ein eigenes Dateiformat:
 
 Diese Anleitung beschreibt iZerp **allgemein**. Abschnitt 8 spezifiziert das
 `.izerp`-Format vollständig; Abschnitt 9 zeigt, wie eine **KI** daraus eine
-Präsentation **automatisch** erzeugt.
+Präsentation **automatisch** erzeugt; Abschnitt 12 beschreibt das
+**Docker-Image**, das aus einem PDF eine gehostete Präsentation macht — ganz
+ohne eigenes HTML.
 
 ---
 
@@ -540,6 +543,46 @@ Folienwechsel werden über eine `aria-live`-Region angesagt;
   Akzente (Gefahr-Rot, Warn-Orange, der weiße Laser-Kern) sind bewusst fix und
   folgen dem Brand-Theme nicht.
 - **Speicher ist pro-URL**, außer man setzt `data-storage-key` (siehe Abschnitt 6).
+
+---
+
+## 12. Docker — eine Präsentation aus einem PDF, gehostet
+
+Alles bisher setzt voraus, dass du das HTML schreibst. Wenn du stattdessen ein
+**PDF** hast, übernimmt das offizielle Image diesen Teil: Es hostet eine Seite,
+auf der du ein PDF hochlädst (und, falls vorhanden, eine `.izerp`-Datei),
+rendert die Seiten auf eine Fläche und liefert das Ergebnis als ganz normale
+iZerp-Präsentation aus.
+
+```bash
+docker run -p 8080:8080 -v "$PWD/decks:/data" illustratus/izerp
+```
+
+<http://localhost:8080> öffnen, PDF hochladen, **Present** drücken.
+
+![Eine PDF-Präsentation im Abspielmodus, herausgezoomt auf die Übersichtsfolie](docs/screenshots/docker-deck.png)
+
+- **Ein Volume, einfache Dateien.** Alles landet in `/data` — einhängen, wohin
+  du willst. Ein Ordner pro Präsentation, darin das Original-PDF, die
+  Seitenbilder und die `deck.izerp`. Sichern heißt: Ordner kopieren.
+- **Mehrere Präsentationen, umschaltbar.** Die Startseite listet jede
+  Präsentation auf dem Volume; in einer laufenden Präsentation wechselt eine
+  kleine Leiste oben links zwischen ihnen und tritt beim Vortrag zur Seite.
+- **Folien, die du bestimmst.** Ohne `.izerp`-Datei erzeugt der Container eine
+  Folie pro Seite plus eine Übersichtsfolie. Du kannst eine eigene hochladen, im
+  iZerp-Editor bearbeiten und exportieren, oder per *Regenerate* den
+  Ausgangszustand zurückholen. Das Canvas-Layout ist deterministisch und
+  dokumentiert — eine KI kann also genau wie in Abschnitt 9 eine `.izerp` dafür
+  schreiben.
+- **Weiterhin kein externer Request, weiterhin keine Dependencies.** Der Server
+  ist die Python-Standardbibliothek plus `pdftoppm`; die Seite lädt nichts außer
+  `izerp-lib.js` und `izerp-lib.css`.
+- **Keine Authentifizierung.** Wer den Port erreicht, kann hochladen und
+  löschen. Also hinter einen Reverse Proxy stellen — oder nur lesend betreiben
+  (`IZERP_READ_ONLY=1`).
+
+Vollständige Dokumentation — Konfiguration, exaktes Canvas-Layout, Sicherheit,
+Tags: **[docker/README.md](docker/README.md)**.
 
 ---
 

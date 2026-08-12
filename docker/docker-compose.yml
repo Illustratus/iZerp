@@ -1,0 +1,32 @@
+# Run the iZerp deck host with one command:
+#
+#   docker compose -f docker/docker-compose.yml up
+#
+# Then open http://localhost:8080 and upload a PDF.
+#
+# The decks land in ./decks next to this file. Point the left-hand side of the
+# volume line anywhere you like — that directory IS the storage; copying a deck
+# folder into it (or out of it) is all the migration there is.
+
+services:
+  izerp:
+    # Uses the published image when it is available locally, and builds it from
+    # this checkout when it is not — so `up` works either way.
+    # `docker compose pull` fetches the released image; `--build` forces a rebuild.
+    image: illustratus/izerp:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: izerp
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./decks:/data
+    environment:
+      # IZERP_TITLE: "Our decks"       # heading on the library page
+      # IZERP_LANG: auto               # auto | de | en
+      # IZERP_RENDER_WIDTH: "1600"     # page width in canvas pixels
+      # IZERP_MAX_UPLOAD_MB: "200"
+      # IZERP_READ_ONLY: "1"           # serve only; refuse uploads and deletes
+      TZ: Europe/Berlin

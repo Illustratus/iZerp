@@ -1,5 +1,5 @@
 /**
- * izerp-lib.js — iZerp PanZoom Presentation Library v1.3
+ * izerp-lib.js — iZerp PanZoom Presentation Library v1.4
  * Turns any HTML page into a zoom-and-pan ("Prezi-style") presentation.
  * Wraps the page content in a zoomable canvas; saved viewports become slides.
  *
@@ -44,7 +44,7 @@
   /* ════════════════════════════════════════════════════════════
      CONSTANTS
      ════════════════════════════════════════════════════════════ */
-  const VERSION      = '1.3';
+  const VERSION      = '1.4';
   const FLY_DURATION = '0.85s';
   const EASE_CAM     = 'cubic-bezier(0.4, 0, 0.2, 1)';
   const SIDEBAR_W    = 320; // sidebar width in px — must match CSS --p-sidebar-w

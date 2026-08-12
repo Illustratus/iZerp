@@ -1,0 +1,232 @@
+/* Library page for the iZerp deck host.
+   Same palette as izerp-lib.css ("Brass & Ink") so the container and the
+   library it serves read as one product. Standalone on purpose: this page does
+   not load iZerp, and iZerp's tokens are scoped to #izerp-root. */
+
+:root {
+  --ink:      #0e0c0a;
+  --ink-2:    #15110c;
+  --brass:    #c69a4c;
+  --brass-hi: #eccf92;
+  --oxblood:  #d2364a;
+  --tx-100:   #f3ecda;
+  --tx-72:    rgba(243, 236, 218, 0.74);
+  --tx-50:    rgba(243, 236, 218, 0.52);
+  --tx-32:    rgba(243, 236, 218, 0.34);
+  --line:     rgba(198, 154, 76, 0.16);
+  --line-2:   rgba(198, 154, 76, 0.30);
+  --display:  Georgia, 'Times New Roman', serif;
+  --body:     system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --mono:     ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r-lg: 16px; --r-md: 10px; --r-sm: 7px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 24px 80px;
+  background:
+    radial-gradient(1200px 800px at 30% -10%, #1a1712, var(--ink) 70%)
+    fixed var(--ink);
+  color: var(--tx-72);
+  font: 16px/1.55 var(--body);
+  -webkit-font-smoothing: antialiased;
+}
+
+header.site, main, footer { max-width: 900px; margin: 0 auto; }
+
+header.site { padding: 64px 0 28px; }
+header.site h1 {
+  margin: 0 0 8px;
+  font: 600 44px/1.1 var(--display);
+  color: var(--tx-100);
+  letter-spacing: 0.01em;
+}
+header.site p { margin: 0; color: var(--tx-50); }
+
+h2 {
+  margin: 40px 0 16px;
+  font: 600 22px/1.2 var(--display);
+  color: var(--tx-100);
+}
+h2 .count {
+  font: 400 12px/1 var(--mono);
+  color: var(--tx-32);
+  vertical-align: 2px;
+  margin-left: 6px;
+}
+code {
+  font: 13px/1 var(--mono);
+  color: var(--brass-hi);
+  background: rgba(198, 154, 76, 0.10);
+  padding: 2px 6px;
+  border-radius: var(--r-sm);
+}
+
+/* ── banner ─────────────────────────────────────────────────── */
+.banner {
+  margin: 24px 0 0;
+  padding: 13px 16px;
+  border: 1px solid var(--line-2);
+  border-left-width: 3px;
+  border-radius: var(--r-md);
+  background: rgba(198, 154, 76, 0.07);
+  color: var(--tx-100);
+}
+.banner-warn {
+  border-color: rgba(210, 54, 74, 0.45);
+  background: rgba(210, 54, 74, 0.10);
+}
+
+/* ── upload ─────────────────────────────────────────────────── */
+.upload {
+  margin-top: 28px;
+  padding: 24px;
+  background: linear-gradient(158deg, rgba(255, 248, 232, 0.045), rgba(255, 248, 232, 0.012) 40%, transparent);
+  border: 1px solid var(--line);
+  border-top-color: rgba(236, 207, 146, 0.34);
+  border-radius: var(--r-lg);
+}
+.upload h2 { margin-top: 0; }
+.fields {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  margin-bottom: 20px;
+}
+label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tx-100);
+}
+label .hint {
+  display: block;
+  font-weight: 400;
+  font-size: 12.5px;
+  color: var(--tx-32);
+  margin: 2px 0 7px;
+}
+input[type="text"], input[type="number"], input[type="file"] {
+  width: 100%;
+  font: 14px/1.4 var(--body);
+  color: var(--tx-100);
+  background: rgba(14, 12, 10, 0.7);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 9px 10px;
+}
+input[type="file"] { padding: 7px 8px; color: var(--tx-50); }
+input::file-selector-button {
+  font: 13px var(--body);
+  color: var(--tx-100);
+  background: rgba(198, 154, 76, 0.14);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 5px 10px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+input:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--brass-hi);
+  outline-offset: 2px;
+}
+
+/* ── buttons ────────────────────────────────────────────────── */
+.btn {
+  display: inline-block;
+  font: 600 13.5px/1 var(--body);
+  color: var(--tx-100);
+  text-decoration: none;
+  background: rgba(255, 248, 232, 0.045);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 9px 14px;
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--line-2); background: rgba(198, 154, 76, 0.12); }
+.btn-primary {
+  color: #1a1307;
+  background: linear-gradient(180deg, var(--brass-hi) 0%, #cda85e 46%, #95702f 100%);
+  border-color: rgba(236, 207, 146, 0.5);
+}
+.btn-primary:hover { filter: brightness(1.07); }
+.btn-lg { padding: 12px 22px; font-size: 15px; }
+.btn-danger { color: #ffd9de; border-color: rgba(210, 54, 74, 0.4); }
+.btn-danger:hover { background: rgba(210, 54, 74, 0.18); border-color: var(--oxblood); }
+
+/* ── deck cards ─────────────────────────────────────────────── */
+.deck {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  padding: 16px;
+  margin-bottom: 14px;
+  background: linear-gradient(180deg, rgba(255, 248, 232, 0.035), rgba(255, 248, 232, 0.008));
+  border: 1px solid var(--line);
+  border-left: 2px solid transparent;
+  border-radius: var(--r-md);
+}
+.deck:hover { border-left-color: var(--brass); }
+.deck-open { flex-shrink: 0; line-height: 0; }
+.thumb {
+  width: 148px;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top center;
+  background: #fff;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+}
+.thumb-empty { background: var(--ink-2); }
+.deck-body { flex: 1; min-width: 0; }
+.deck-body h3 { margin: 2px 0 4px; font: 600 19px/1.25 var(--display); }
+.deck-body h3 a { color: var(--tx-100); text-decoration: none; }
+.deck-body h3 a:hover { color: var(--brass-hi); }
+.deck-meta { margin: 0 0 12px; font: 12.5px/1.4 var(--mono); color: var(--tx-32); }
+.deck-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.off-page { color: var(--oxblood); }
+
+.deck-more { margin-top: 14px; }
+.deck-more summary {
+  font-size: 13px;
+  color: var(--tx-32);
+  cursor: pointer;
+  list-style: none;
+}
+.deck-more summary::before { content: '▸ '; }
+.deck-more[open] summary::before { content: '▾ '; }
+.deck-more summary:hover { color: var(--tx-72); }
+.deck-more .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+.deck-more .row input[type="file"] { width: auto; flex: 1 1 220px; }
+
+.empty {
+  padding: 34px 24px;
+  text-align: center;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-md);
+}
+.empty h3 { margin: 0 0 8px; font: 600 19px var(--display); color: var(--tx-100); }
+.empty p { margin: 0 auto; max-width: 46ch; color: var(--tx-50); }
+
+footer {
+  margin-top: 56px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  font: 12px/1 var(--mono);
+  color: var(--tx-32);
+}
+
+@media (max-width: 620px) {
+  header.site { padding-top: 40px; }
+  header.site h1 { font-size: 34px; }
+  .deck { flex-direction: column; }
+  .thumb { width: 100%; }
+}

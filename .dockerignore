@@ -1,0 +1,12 @@
+# Build context for docker/Dockerfile is the repository root — keep it small.
+.git
+.github
+node_modules
+test-results
+playwright-report
+docs/screenshots
+*.izerp
+decks
+__pycache__
+*.pyc
+.DS_Store

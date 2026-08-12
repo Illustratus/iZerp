@@ -5,6 +5,7 @@
   <img src="https://img.shields.io/badge/dependencies-none-c69a4c.svg" alt="No dependencies">
   <img src="https://img.shields.io/badge/build-not%20required-c69a4c.svg" alt="No build step">
   <img src="https://img.shields.io/badge/types-included-c69a4c.svg" alt="TypeScript types included">
+  <a href="https://hub.docker.com/r/illustratus/izerp"><img src="https://img.shields.io/docker/v/illustratus/izerp?label=docker&color=c69a4c" alt="Docker image"></a>
 </p>
 
 > 🌐 **Language:** English (this file) · [Deutsch](README.de.md)
@@ -38,7 +39,8 @@ At its core iZerp is **two files** plus its own file format:
 
 This guide describes iZerp **generally**. Section 8 fully specifies the `.izerp`
 format; section 9 shows how an **AI** can generate a presentation from it
-**automatically**.
+**automatically**; section 12 covers the **Docker image** that turns a PDF into a
+hosted presentation without writing any HTML.
 
 ---
 
@@ -525,6 +527,43 @@ ARIA live region; `prefers-reduced-motion` is honoured.
   is a full example); a few semantic accents (danger red, warning orange, the
   laser's white core) are intentionally fixed and don't follow the brand theme.
 - **Storage is per-URL** unless you set `data-storage-key` (see section 6).
+
+---
+
+## 12. Docker — a deck from a PDF, hosted
+
+Everything above assumes you write the HTML. If what you have is a **PDF**, the
+official image does that part for you: it hosts a page where you upload a PDF
+(and, if you have one, a `.izerp` file), renders the pages onto one canvas, and
+serves the result as an ordinary iZerp presentation.
+
+```bash
+docker run -p 8080:8080 -v "$PWD/decks:/data" illustratus/izerp
+```
+
+Open <http://localhost:8080>, upload a PDF, press **Present**.
+
+![A PDF deck playing, zoomed out to the overview slide](docs/screenshots/docker-deck.png)
+
+- **One volume, plain files.** Everything lands in `/data` — mount it wherever
+  you want. One folder per presentation, containing the original PDF, the page
+  images, and the `deck.izerp`. Backing up is copying the folder.
+- **Several presentations, switchable.** The start page lists every deck on the
+  volume; inside a running deck a small bar in the top-left corner switches
+  between them and steps aside while you present.
+- **Slides you control.** Without a `.izerp` file the container generates one
+  slide per page plus an overview slide. Upload your own, edit in iZerp's editor
+  and export, or hit *Regenerate* to get the default back. The canvas layout is
+  deterministic and documented, so an AI can write a `.izerp` against it exactly
+  as in section 9.
+- **Still no external requests, still no dependencies.** The server is the
+  Python standard library plus `pdftoppm`; the page loads nothing but
+  `izerp-lib.js` and `izerp-lib.css`.
+- **No authentication.** Anyone who can reach the port can upload and delete.
+  Put it behind a reverse proxy, or run it read-only (`IZERP_READ_ONLY=1`).
+
+Full documentation — configuration, the exact canvas layout, security, tags:
+**[docker/README.md](docker/README.md)**.
 
 ---
 

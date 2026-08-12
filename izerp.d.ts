@@ -1,4 +1,4 @@
-// Type definitions for iZerp v1.3
+// Type definitions for iZerp v1.4
 // Project: https://github.com/Illustratus/iZerp
 // iZerp is a plain browser global (window.iZerp); this file describes it.
 
